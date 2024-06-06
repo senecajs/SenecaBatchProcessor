@@ -40,7 +40,7 @@ seneca.use('BatchProcessor', {
               msg: {
                 aim: 'bar',
                 color: 'blue',
-                planet: 'out~planet' // dot path ref (see npm package `inks`)
+                planet: 'out~planet' // dot path ref (see npm package `inks` .evaluate)
                 order: 'ctx~place.order~Number' // Gubu validation expression
               }   
             },
@@ -86,7 +86,9 @@ seneca.act({aim:bar,color:green,planet:mars,order:1})
 
 // Seneca setup script:
 
-seneca.use('BatchProcessor', {
+seneca
+.use('BatchMonitor', {...})
+.use('BatchProcessor', {
   send: {  
     mode: 'async', // wait for transition, global setting
   },
