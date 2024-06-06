@@ -1,21 +1,15 @@
-# @seneca/config
+# @seneca/batch-processor
 
-> _Seneca Config_ is a plugin for [Seneca](http://senecajs.org)
+> _Seneca BatchProcessor_ is a plugin for [Seneca](http://senecajs.org)
 
-Live configuration plugin for the Seneca framework.
+INTRO
 
-Unlike static configuration, this plugin lets you store keyed
-configuration in your deployed persistent storage so that you can
-change it on the live system. This is useful for things like currency
-exchange rates, feature flags, A/B testing etc.
-
-
-[![npm version](https://img.shields.io/npm/v/@seneca/config.svg)](https://npmjs.com/package/@seneca/config)
-[![build](https://github.com/senecajs/SenecaConfig/actions/workflows/build.yml/badge.svg)](https://github.com/senecajs/SenecaConfig/actions/workflows/build.yml)
-[![Coverage Status](https://coveralls.io/repos/github/senecajs/SenecaConfig/badge.svg?branch=main)](https://coveralls.io/github/senecajs/SenecaConfig?branch=main)
-[![Known Vulnerabilities](https://snyk.io/test/github/senecajs/SenecaConfig/badge.svg)](https://snyk.io/test/github/senecajs/SenecaConfig)
+[![npm version](https://img.shields.io/npm/v/@seneca/batch-processor.svg)](https://npmjs.com/package/@seneca/batch-processor)
+[![build](https://github.com/senecajs/SenecaBatchProcessor/actions/workflows/build.yml/badge.svg)](https://github.com/senecajs/SenecaBatchProcessor/actions/workflows/build.yml)
+[![Coverage Status](https://coveralls.io/repos/github/senecajs/SenecaBatchProcessor/badge.svg?branch=main)](https://coveralls.io/github/senecajs/SenecaBatchProcessor?branch=main)
+[![Known Vulnerabilities](https://snyk.io/test/github/senecajs/SenecaBatchProcessor/badge.svg)](https://snyk.io/test/github/senecajs/SenecaBatchProcessor)
 [![DeepScan grade](https://deepscan.io/api/teams/5016/projects/26547/branches/846930/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=5016&pid=26547&bid=846930)
-[![Maintainability](https://api.codeclimate.com/v1/badges/3e5e5c11a17dbfbdd894/maintainability)](https://codeclimate.com/github/senecajs/SenecaConfig/maintainability)
+[![Maintainability](https://api.codeclimate.com/v1/badges/3e5e5c11a17dbfbdd894/maintainability)](https://codeclimate.com/github/senecajs/SenecaBatchProcessor/maintainability)
 
 | ![Voxgig](https://www.voxgig.com/res/img/vgt01r.png) | This open source module is sponsored and supported by [Voxgig](https://www.voxgig.com). |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -23,124 +17,151 @@ exchange rates, feature flags, A/B testing etc.
 ## Install
 
 ```sh
-$ npm install @seneca/Config
+$ npm install @seneca/batch-processor
 ```
+
 
 ## Quick Example
 
 ```js
-seneca.use('Config', {})
 
-const initRes = await seneca.post('sys:config,init:val,key:a,val:1')
-// === { ok: true, key: 'a', val: 1, entry: { key: 'a', val: 1 } }
+// Seneca setup script:
 
-const getRes = await seneca.post('sys:config,get:val,key:a')
-// === { ok: true, key: 'a', val: 1, entry: { key: 'a', val: 1 } }
+seneca.use('BatchProcessor', {
+  send: {  
+    mode: 'async', // wait for transition, global setting
+  },
+  where: {
+    'aim:foo,color:red': {
+      match: { // on out
+        'ok:true': {
+          send: [  // zero or more next messages
+            {
+              msg: {
+                aim: 'bar',
+                color: 'blue',
+                planet: 'out~planet' // dot path ref (see npm package `inks`)
+                order: 'ctx~place.order~Number' // Gubu validation expression
+              }   
+            },
+            {
+              mode: 'sync', // use .act, don't await
+              msg: 'aim:bar,color:green,planet:out~planet',
+              body: { // msg has precedence
+                order: 'ctx~place.order~Number'
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+})
 
-const setRes = await seneca.post('sys:config,set:val,key:a,val:2')
-// === { ok: true, key: 'a', val: 1, entry: { key: 'a', val: 2 } }
+
+// Within aim:foo,color:red action script:
+
+const process = seneca.export('BatchProcessor/process')
+
+let out = {ok:true,planet:'mars'}
+let ctx = {place:{order:1}} // for data not returned by message action
+out = await process(seneca, ctx, out)
+// send = [{aim:bar,color:blue,planet:mars,order:1}, {aim:bar,color:green,planet:mars,order:1}]
+// out = {ok:true,planet:'mars',batch:BATCHID,run:RUNID}
 
 ```
 
+The message send operations are executed by the plugin with code equivalent to:
+
+```js
+await seneca.post({aim:'bar',color:'blue',planet:'mars',order:1})
+seneca.act({aim:bar,color:green,planet:mars,order:1})
+```
+
+
 ## More Examples
 
-Review the [unit tests](test/Config.test.ts) for more examples.
+
+```js
+
+// Seneca setup script:
+
+seneca.use('BatchProcessor', {
+  send: {  
+    mode: 'async', // wait for transition, global setting
+  },
+  where: {
+    'aim:foo,color:red': {
+      match: {
+        '*': { // catch all if no other patterns match
+          // Create BatchMonitor entry if ctx.BatchMonitorEntry$ defined 
+          entry: 'fail' // entry state, entry.info={why:'batch-process-no-match'}
+        },
+        'ok:false': {
+          entry: { state: 'fail', info: { why: 'out~why' } },
+          send: { // if single msg, no array needed
+            // ctx has original message in msg$
+            // out~ means entire contents of out object
+            msg: 'aim:monitor,fail:msg,msg:ctx~msg$,out:out~'
+          } 
+        },
+        'ok:true': { // matches are in same Patrun set, so usual Seneca pattern rules apply
+          entry: 'done', // only created after all msgs sent
+          send: [  // zero or more next messages
+            {
+              msg: {
+                aim: 'bar',
+                color: 'blue',
+                planet: 'out~planet' // dot path ref
+                order: 'ctx~place.order~Number' // Gubu validation expression
+              }   
+            },
+            {
+              mode: 'sync', // use .act, don't await
+              msg: 'aim:bar,color:green,planet:out~planet',
+              body: { // msg has precedence
+                order: 'ctx~place.order~Number'
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+})
+
+
+// Within aim:foo,color:red action script:
+
+const process = seneca.export('BatchProcessor/process')
+const bme = seneca.BatchMonitor(...).entry(...)
+
+let out = {ok:true,planet:'mars'}
+let ctx = {place:{order:1},BatchMonitorEntry$:bme}
+out = await process(seneca, ctx, out)
+// send = [{aim:bar,color:blue,planet:mars,order:1}, {aim:bar,color:green,planet:mars,order:1}]
+// out = {ok:true,planet:'mars',batch:BATCHID,run:RUNID}
+
+// The ctx object is used for returning additional information, such as send msg results.
+// ctx = {place:{order:1}, result$:[{msg:,out:,bgn:,end:,dur:},...]}
+
+```
+
+
+
+
+Review the [unit tests](test/BatchProcessor.test.ts) for more examples.
 
 
 
 <!--START:options-->
 
 
-## Options
-
-* `debug` : boolean
-* `numparts` : number
-* `canon` : object
-* `init$` : boolean
-
 
 <!--END:options-->
 
 <!--START:action-list-->
 
-
-## Action Patterns
-
-* [sys:config,get:val](#-sysconfiggetval-)
-* [sys:config,init:val](#-sysconfiginitval-)
-* [sys:config,list:val](#-sysconfiglistval-)
-* [sys:config,map:val](#-sysconfigmapval-)
-* [sys:config,set:val](#-sysconfigsetval-)
-
-
-<!--END:action-list-->
-
-<!--START:action-desc-->
-
-
-## Action Descriptions
-
-### &laquo; `sys:config,get:val` &raquo;
-
-Get a config value by key.
-
-
-#### Parameters
-
-
-* __key__ : _string_
-
-
-----------
-### &laquo; `sys:config,init:val` &raquo;
-
-Initialise a config value by key (must not exist).
-
-
-#### Parameters
-
-
-* __key__ : _string_
-* __existing__ : _boolean_ (optional, default: `false`)
-
-
-----------
-### &laquo; `sys:config,list:val` &raquo;
-
-List config values by query.
-
-
-#### Parameters
-
-
-* __q__ : _object_ (optional, default: `{}`)
-
-
-----------
-### &laquo; `sys:config,map:val` &raquo;
-
-Get a map of config values by key prefix (dot separated).
-
-
-#### Parameters
-
-
-* __prefix__ : _string_
-
-
-----------
-### &laquo; `sys:config,set:val` &raquo;
-
-Set a config value by key (must exist).
-
-
-#### Parameters
-
-
-* __key__ : _string_
-
-
-----------
 
 
 <!--END:action-desc-->
