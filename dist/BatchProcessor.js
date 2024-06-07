@@ -79,11 +79,12 @@ function BatchProcessor(options) {
     }
     */
     async function process(seneca, ctx, out = {}) {
+        const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function (...args) { };
         let state = states[default_whence];
         let workflow = null;
+        let results = ctx.result$ = ctx.result$ || [];
         // console.log(seneca.private$)
         out = Deep({}, out);
-        ctx.result$ = ctx.result$ || [];
         out.run = out.run || ('R' + generate_id());
         out.batch = out.batch || ('B' + humanify());
         if (workflow = state.patrun.find(out)) {
@@ -98,7 +99,7 @@ function BatchProcessor(options) {
                     let value = inks_1.default.evaluate(msg[key], { out, ctx }, { sep: '~' });
                     if (null != value && 'function' == typeof this[type]) {
                         // console.log(this[type])
-                        let validate = gubu_1.Gubu(this[type]);
+                        let validate = (0, gubu_1.Gubu)(this[type]);
                         validate(value);
                     }
                     if (null != value) {
@@ -110,21 +111,54 @@ function BatchProcessor(options) {
                 }
                 // console.log(config, new_msg)
                 if (config.mode == null && 'async' == options.send.mode) {
-                    // await seneca.post(new_msg)
+                    try {
+                        let result = await seneca.post(new_msg);
+                        results.push(result);
+                    }
+                    catch (error) {
+                        // handle error
+                    }
                 }
                 else if (config.mode == null && 'sync' == options.send.mode) {
-                    // seneca.act(new_msg)
+                    seneca.act(new_msg, function (err, result) {
+                        if (null == err) {
+                            results.push(result);
+                        }
+                    });
                 }
                 else if (config.mode == 'async') {
-                    // await seneca.post(new_msg)
+                    try {
+                        let result = await seneca.post(new_msg);
+                        results.push(result);
+                    }
+                    catch (error) {
+                        // handle error
+                    }
                 }
                 else if (config.mode == 'sync') {
-                    // seneca.act(new_msg)
+                    seneca.act(new_msg, function (err, result) {
+                        if (null == err) {
+                            results.push(result);
+                        }
+                        else {
+                            // handle error
+                        }
+                    });
                 }
+            }
+            if (null != workflow.entry) {
+                let entry = workflow.entry;
+                entry = 'string' == typeof entry ? { state: entry } : entry;
+                BatchMonitorEntry(entry.state, entry.info || {});
             }
             // console.log(workflow, out)
         }
         else if (true === state.all) {
+            if (null != workflow.entry) {
+                let entry = workflow.entry;
+                (0, gubu_1.Gubu)(String)(entry);
+                BatchMonitorEntry(entry, { why: 'batch-process-no-match' });
+            }
         }
         return out;
     }

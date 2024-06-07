@@ -125,6 +125,11 @@ describe('BatchProcessor', () => {
     
     await seneca.ready()
     
+    seneca.message('aim: bar', async function(msg) {
+      console.log('MSG: ', msg)
+      return { ok: true, now: Date.now() }
+    })
+    
     const process = seneca.export('BatchProcessor/process')
     const batch = seneca.BatchMonitor('b0', 'r0')
     
@@ -137,14 +142,24 @@ describe('BatchProcessor', () => {
     
     out = await process(seneca, ctx, out)
     
-    console.log(out)
+    await wait(111)
     
     const report = await batch.report('episode', { podcast_id: 'p0' })
     
     console.log(report.format())
+    
+    await wait(111)
+    
+    console.log(out, ctx)
+      
+    
   })
 
 })
+
+async function wait(t: number = 11) {
+  return new Promise((r) => setTimeout(r, t))
+}
 
 
 function makeSeneca(opts: any = {}) {
@@ -168,5 +183,7 @@ function makeSeneca(opts: any = {}) {
         }
       }
     })
+    
+    
   return seneca
 }

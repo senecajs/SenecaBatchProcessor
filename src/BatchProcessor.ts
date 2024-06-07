@@ -105,15 +105,17 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
   */
 
   async function process(this: any, seneca: any, ctx: any, out: any = {}) {
+    const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function(this: any, ...args: any) {}
+    
     let state = states[default_whence] 
     let workflow: any = null
+    let results = ctx.result$ = ctx.result$ || []
+    
     
     // console.log(seneca.private$)
     
     out = Deep({}, out)
-    ctx.result$ = ctx.result$ || []
-    
-    
+
     out.run = out.run || ('R' + generate_id())
     out.batch = out.batch || ('B' + humanify())
     
@@ -132,7 +134,7 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
           
           if(null != value && 'function' == typeof this[type]) {
             // console.log(this[type])
-            let validate = (Gubu as any)(this[type])
+            let validate = Gubu(this[type])
             validate(value)
           }
           
@@ -147,20 +149,51 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
         // console.log(config, new_msg)
         
         if(config.mode == null && 'async' == options.send.mode) {
-          // await seneca.post(new_msg)
+          try {
+            let result = await seneca.post(new_msg)
+            results.push(result)
+          } catch(error) {
+            // handle error
+          }
         } else if(config.mode == null && 'sync' == options.send.mode) {
-          // seneca.act(new_msg)
+          seneca.act(new_msg, function(this: any, err: any, result: any) {
+            if(null == err) {
+              results.push(result)
+            }
+          })
         } else if(config.mode == 'async') {
-          // await seneca.post(new_msg)
+          try {
+            let result = await seneca.post(new_msg)
+            results.push(result)
+          } catch(error) {
+            // handle error
+          }
         } else if(config.mode == 'sync' ) {
-          // seneca.act(new_msg)
+          seneca.act(new_msg, function(this: any, err: any, result: any) {
+            if(null == err) {
+              results.push(result)
+            } else {
+              // handle error
+            }
+          })
         }
         
+      }
+      
+      if(null != workflow.entry) {
+        let entry = workflow.entry
+        entry = 'string' == typeof entry ? { state: entry } : entry
+        BatchMonitorEntry(entry.state, entry.info || {})
         
       }
      
       // console.log(workflow, out)
     } else if(true === state.all) {
+      if(null != workflow.entry) {
+        let entry = workflow.entry
+        Gubu(String)(entry)
+        BatchMonitorEntry(entry, { why:'batch-process-no-match' })
+      }
     }
     
     
