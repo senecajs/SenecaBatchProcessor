@@ -47,7 +47,7 @@ class Utility {
     const Jsonic = seneca.util.Jsonic
     const globalThis: any = global
     msg = Object.assign(
-      typeof msg == 'string' ? Jsonic(msg) : msg, body)
+      typeof msg == 'string' ? Jsonic(msg) : { ...msg }, body)
     
     // console.log(i++, msg)
 

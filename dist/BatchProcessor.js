@@ -31,7 +31,7 @@ class Utility {
     static evaluateMessage(seneca, ctx, out, msg, body = null) {
         const Jsonic = seneca.util.Jsonic;
         const globalThis = global;
-        msg = Object.assign(typeof msg == 'string' ? Jsonic(msg) : msg, body);
+        msg = Object.assign(typeof msg == 'string' ? Jsonic(msg) : { ...msg }, body);
         // console.log(i++, msg)
         let new_msg = {};
         for (let key in msg) {
