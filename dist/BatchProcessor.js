@@ -132,36 +132,40 @@ function BatchProcessor(options) {
     const Deep = seneca.util.deepextend;
     const generate_id = seneca.util.Nid;
     const BatchId = generate_id();
-    let wheres = {};
-    let default_whence = '';
+    let wheres = new Patrun({ gex: true });
     for (const message_whence in options.where) {
-        if ('' == default_whence) {
-            default_whence = message_whence;
-        }
         let match = (_a = options.where[message_whence]) === null || _a === void 0 ? void 0 : _a.match;
+        let pattern = Jsonic(message_whence);
         for (const message_pattern in match) {
             let workflow = match[message_pattern];
+            // console.log(message_pattern, pattern)
             if (ALL == message_pattern) {
-                wheres[message_whence] =
-                    wheres[message_whence] || new Match(new Patrun({ gex: true }));
-                wheres[message_whence].set_all(workflow);
+                let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }));
+                matchInst.set_all(workflow);
+                wheres.add(pattern, matchInst);
             }
             else {
-                wheres[message_whence] =
-                    wheres[message_whence] || new Match(new Patrun({ gex: true }));
-                wheres[message_whence].patrun.add(Jsonic(message_pattern), workflow);
+                let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }));
+                matchInst.patrun.add(Jsonic(message_pattern), workflow);
+                wheres.add(pattern, matchInst);
             }
         }
     }
     async function process(seneca, ctx, out = {}) {
+        var _a, _b;
         const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function (...args) { };
-        let where = wheres[default_whence];
+        const whence = (_b = (_a = seneca.private$) === null || _a === void 0 ? void 0 : _a.act) === null || _b === void 0 ? void 0 : _b.msg;
+        // console.log(whence, wheres.list())
+        let where = wheres.find(whence);
         let workflow = null;
         let results = ctx.result$ = ctx.result$ || [];
-        // console.log(seneca.private$)
+        // console.log(seneca.private$?.act?.msg)
         out = { ...out };
         out.run = out.run || ('R' + generate_id());
         out.batch = out.batch || ('B' + humanify());
+        if (null == where) {
+            throw new Error("whence not found!");
+        }
         if (workflow = where.find(out)) {
             // let i = 0;
             const send = Array.isArray(workflow.send) ? workflow.send : [workflow.send];

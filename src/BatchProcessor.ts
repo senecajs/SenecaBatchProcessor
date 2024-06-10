@@ -159,24 +159,22 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
   const generate_id = seneca.util.Nid
   const BatchId = generate_id()
   
-  let wheres: any = {}
-  let default_whence: string = ''
+  let wheres: any = new Patrun({ gex: true })
   
   for(const message_whence in options.where) {
-    if('' == default_whence) {
-      default_whence = message_whence
-    }
     let match = options.where[message_whence]?.match
+    let pattern = Jsonic(message_whence)
     for(const message_pattern in match) {
       let workflow = match[message_pattern]
+      // console.log(message_pattern, pattern)
       if(ALL == message_pattern) {
-        wheres[message_whence] = 
-          wheres[message_whence] || new Match(new Patrun({ gex: true }))
-        wheres[message_whence].set_all(workflow)
+        let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }))
+        matchInst.set_all(workflow)
+        wheres.add(pattern, matchInst)
       } else {
-        wheres[message_whence] = 
-          wheres[message_whence] || new Match(new Patrun({ gex: true }))
-        wheres[message_whence].patrun.add(Jsonic(message_pattern), workflow)
+        let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }))
+        matchInst.patrun.add(Jsonic(message_pattern), workflow)
+        wheres.add(pattern, matchInst)
         
       }
     
@@ -184,19 +182,26 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
   }
 
   async function process(this: any, seneca: any, ctx: any, out: any = {}) {
+  
     const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function(this: any, ...args: any) {}
+    const whence = seneca.private$?.act?.msg
     
-    let where = wheres[default_whence] 
+    // console.log(whence, wheres.list())
+    let where = wheres.find(whence)
     let workflow: any = null
     let results = ctx.result$ = ctx.result$ || []
     
     
-    // console.log(seneca.private$)
+    // console.log(seneca.private$?.act?.msg)
     
     out = { ...out }
 
     out.run = out.run || ('R' + generate_id())
     out.batch = out.batch || ('B' + humanify())
+    
+    if(null == where) {
+      throw new Error("whence not found!")
+    }
     
     
     if(workflow = where.find(out)) {
