@@ -95,7 +95,7 @@ describe('BatchProcessor', () => {
   
   })
   
-  test('more complex', async () => {
+  describe('more complex', () => {
     const seneca = makeSeneca({
       send: {
         mode: 'async', // wait for transition, global setting
@@ -145,73 +145,102 @@ describe('BatchProcessor', () => {
       }
     })
     
-    await seneca.ready()
-    
     let state = { c: 0 }
-    let out, ctx, report
+    let out, ctx, report, bme
     
-    seneca.message('aim:bar', async function(msg) {
-      state.ok = true
-      state.c++
-      // console.log('aim:bar', msg)
+    let process, batch
+    
+    beforeAll(async () => {
+    
+      await seneca.ready()
+      process = seneca.export('BatchProcessor/process')
+      batch = seneca.BatchMonitor('b0', 'r0')
+    
+      seneca.message('aim:bar', async function(msg) {
+        state.ok = true
+        state.c++
+        // console.log('aim:bar', msg)
       
-      return { ok: true, now: Date.now() }
+        return { ok: true, now: Date.now() }
+      })
+    
+      seneca.message('aim:monitor', async function(msg) {
+        state.ok = false
+        state.msg = msg.msg
+        state.c++
+        // console.log('aim:monitorr: ', msg)
+        return { ok: false, now: Date.now() }
+      })
+    
     })
     
-    seneca.message('aim:monitor', async function(msg) {
-      state.ok = false
-      state.msg = msg.msg
-      state.c++
-      // console.log('aim:monitorr: ', msg)
-      return { ok: false, now: Date.now() }
+    
+    test('state: "done"', async () => {
+      bme = await batch.entry('episode', 'ingest', 'e0', { podcast_id: 'p0' })
+    
+      out = { ok: true, planet: 'mars' }
+      ctx = { place: { order: 1 }, BatchMonitorEntry$: bme }
+    
+      out = await process(seneca, ctx, out)
+    
+      await wait(111)
+    
+      report = await batch.report('episode', { podcast_id: 'p0' })
+    
+      console.log(report.format())
+    
+      // console.log(out, ctx, state)
+    
+      expect(report.td.line.e0).toBeTruthy()
+      expect(report.td.line.e0.step.ingest.state).toEqual('done')
+      expect(state).toEqual({ok: true, c: 2})
+      expect(ctx.result$.length).toEqual(2)
+    
     })
     
-    const process = seneca.export('BatchProcessor/process')
-    const batch = seneca.BatchMonitor('b0', 'r0')
+    test('state: "fail"', async () => {
+      bme = await batch.entry('episode', 'ingest', 'e1', { podcast_id: 'p0' })
+      state = { c: 0 }
+      out = { ok: false }
+      ctx = { msg$: "failed", BatchMonitorEntry$: bme }
     
-    let bme = await batch.entry('episode', 'ingest', 'e0', { podcast_id: 'p0' })
+      out = await process(seneca, ctx, out)
+      await wait(111)
     
-    out = { ok: true, planet: 'mars' }
-    ctx = { place: { order: 1 }, BatchMonitorEntry$: bme }
+      report = await batch.report('episode', { podcast_id: 'p0' })
     
-    // await bme('start')
+      console.log(report.format())
+      // console.log(report.td.line.e1)
+      expect(report.td.line.e1).toBeTruthy()
+      expect(report.td.line.e1.step.ingest.state).toEqual('fail')
+      expect(state).toEqual({ok: false, msg: 'failed', c: 1 })
+      expect(ctx.result$.length).toEqual(1)
     
-    out = await process(seneca, ctx, out)
+    })
     
-    await wait(111)
+    test('match "*"', async () => {
+      // match: '*'
+      bme = await batch.entry('episode', 'ingest', 'e2', { podcast_id: 'p0' })
+      state = {}
+      out = { nomatch: null }
+      ctx = { msg$: "failed", BatchMonitorEntry$: bme }
     
-    report = await batch.report('episode', { podcast_id: 'p0' })
+      out = await process(seneca, ctx, out)
+      await wait(111)
+      report = await batch.report('episode', { podcast_id: 'p0' })
     
-    console.log(report.format())
+      console.log(report.format())
+      // console.log(report.td.line.e2)
     
+      expect(report.td.line.e2).toBeTruthy()
+      expect(report.td.line.e2.step.ingest.state).toEqual('fail')
+      expect(report.td.line.e2.step.ingest.why).toEqual('batch-process-no-match')
+      expect(state).toEqual({})
+      expect(ctx.result$.length).toEqual(0)
+      // console.log(out, ctx, state)
     
-    await wait(111)
+    })
     
-    // console.log(out, ctx, state)
-    
-    expect(report.td.line.e0).toBeTruthy()
-    expect(state).toEqual({ok: true, c: 2})
-    expect(ctx.result$.length).toEqual(2)
-    
-    
-    bme = await batch.entry('episode', 'ingest', 'e1', { podcast_id: 'p0' })
-    state = { c: 0 }
-    out = { ok: false }
-    ctx = { msg$: "failed", BatchMonitorEntry$: bme }
-    
-    out = await process(seneca, ctx, out)
-    await wait(111)
-    report = await batch.report('episode', { podcast_id: 'p0' })
-    
-    console.log(report.format())
-    
-    
-    await wait(111)
-    expect(report.td.line.e1).toBeTruthy()
-    expect(state).toEqual({ok: false, msg: 'failed', c: 1 })
-    expect(ctx.result$.length).toEqual(1)
-    
-    // console.log(out, ctx, state)  
   })
 
 })

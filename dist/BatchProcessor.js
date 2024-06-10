@@ -7,9 +7,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const inks_1 = __importDefault(require("inks"));
 const gubu_1 = require("gubu");
 const ALL = '*';
+const Types = {
+    'Number': 1,
+    'Boolean': 1,
+    'String': 1,
+    'Array': 1,
+    'Object': 1
+};
 // FEATURE: subsets of keys by dot separators.
 class Match {
-    constructor(patrun, all = false) {
+    constructor(patrun, all = null) {
         this.patrun = patrun;
         this.all = all;
     }
@@ -30,9 +37,9 @@ class Utility {
         for (let key in msg) {
             let type = msg[key].split('~').pop();
             let value = inks_1.default.evaluate(msg[key], { out, ctx }, { sep: '~' });
-            if (null != value && 'function' == typeof globalThis[type]) {
+            if (null != value && Types[type]) {
                 // console.log(globalThis[type])
-                let validate = (0, gubu_1.Gubu)(globalThis[type]);
+                let validate = (0, gubu_1.Gubu)(eval(type));
                 validate(value);
             }
             if (null != value) {
@@ -132,7 +139,7 @@ function BatchProcessor(options) {
             if (ALL == message_pattern) {
                 wheres[message_whence] =
                     wheres[message_whence] || new Match(new Patrun({ gex: true }));
-                wheres[message_whence].set_all(true);
+                wheres[message_whence].set_all(workflow);
             }
             else {
                 wheres[message_whence] =
@@ -159,6 +166,7 @@ function BatchProcessor(options) {
                 // console.log(config, msg_evld)
                 Utility.workflowRun(seneca, msg_evld, config, options, results);
             }
+            // entry report
             if (null != workflow.entry) {
                 let entry = workflow.entry;
                 entry = 'string' == typeof entry ? { state: entry } : entry;
@@ -166,7 +174,8 @@ function BatchProcessor(options) {
             }
             // console.log(workflow, out)
         }
-        else if (true === where.all) {
+        else if (null != where.all) {
+            workflow = where.all;
             if (null != workflow.entry) {
                 let entry = workflow.entry;
                 (0, gubu_1.Gubu)(String)(entry);

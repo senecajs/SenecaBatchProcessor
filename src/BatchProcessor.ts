@@ -4,6 +4,13 @@ import Inks from 'inks'
 import { Gubu } from 'gubu'
 
 const ALL = '*'
+const Types: Record<string, number> = {
+  'Number': 1,
+  'Boolean': 1,
+  'String': 1,
+  'Array': 1,
+  'Object': 1
+}
 
 type BatchProcessorOptionsFull = {
   debug: boolean
@@ -19,7 +26,7 @@ class Match {
   all: boolean
   patrun: any
   
-  constructor(patrun: any, all: boolean = false) {
+  constructor(patrun: any, all: any = null) {
     this.patrun = patrun
     this.all = all
   }
@@ -49,9 +56,9 @@ class Utility {
       let type = msg[key].split('~').pop()
       let value = (Inks as any).evaluate(msg[key], { out, ctx }, { sep: '~' })
   
-      if(null != value && 'function' == typeof globalThis[type]) {
+      if(null != value && Types[type]) {
         // console.log(globalThis[type])
-        let validate = Gubu(globalThis[type])
+        let validate = Gubu(eval(type))
         validate(value)
       }
   
@@ -160,7 +167,7 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
       if(ALL == message_pattern) {
         wheres[message_whence] = 
           wheres[message_whence] || new Match(new Patrun({ gex: true }))
-        wheres[message_whence].set_all(true)
+        wheres[message_whence].set_all(workflow)
       } else {
         wheres[message_whence] = 
           wheres[message_whence] || new Match(new Patrun({ gex: true }))
@@ -200,6 +207,7 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
         
       }
       
+      // entry report
       if(null != workflow.entry) {
         let entry = workflow.entry
         entry = 'string' == typeof entry ? { state: entry } : entry
@@ -208,7 +216,8 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
       }
      
       // console.log(workflow, out)
-    } else if(true === where.all) {
+    } else if(null != where.all) {
+      workflow = where.all
       if(null != workflow.entry) {
         let entry = workflow.entry
         Gubu(String)(entry)
