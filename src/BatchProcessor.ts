@@ -158,10 +158,12 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
     for(const message_pattern in match) {
       let workflow = match[message_pattern]
       if(ALL == message_pattern) {
-        wheres[message_whence] = wheres[message_whence] || new Match(new Patrun({ gex: true }))
+        wheres[message_whence] = 
+          wheres[message_whence] || new Match(new Patrun({ gex: true }))
         wheres[message_whence].set_all(true)
       } else {
-        wheres[message_whence] = wheres[message_whence] || new Match(new Patrun({ gex: true }))
+        wheres[message_whence] = 
+          wheres[message_whence] || new Match(new Patrun({ gex: true }))
         wheres[message_whence].patrun.add(Jsonic(message_pattern), workflow)
         
       }
