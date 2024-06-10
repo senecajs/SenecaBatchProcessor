@@ -8,13 +8,78 @@ const inks_1 = __importDefault(require("inks"));
 const gubu_1 = require("gubu");
 const ALL = '*';
 // FEATURE: subsets of keys by dot separators.
-class State {
+class Match {
     constructor(patrun, all = false) {
         this.patrun = patrun;
         this.all = all;
     }
     set_all(all) {
         this.all = all;
+    }
+    find(pattern) {
+        return this.patrun.find(pattern);
+    }
+}
+class Utility {
+    static evaluateMessage(seneca, ctx, out, msg, body = null) {
+        const Jsonic = seneca.util.Jsonic;
+        const globalThis = global;
+        msg = Object.assign(typeof msg == 'string' ? Jsonic(msg) : msg, body);
+        // console.log(i++, msg)
+        let new_msg = {};
+        for (let key in msg) {
+            let type = msg[key].split('~').pop();
+            let value = inks_1.default.evaluate(msg[key], { out, ctx }, { sep: '~' });
+            if (null != value && 'function' == typeof globalThis[type]) {
+                // console.log(globalThis[type])
+                let validate = (0, gubu_1.Gubu)(globalThis[type]);
+                validate(value);
+            }
+            if (null != value) {
+                new_msg[key] = value;
+            }
+            else {
+                new_msg[key] = msg[key];
+            }
+        }
+        return new_msg;
+    }
+    static async workflowRun(seneca, msg, config, options, results) {
+        if (config.mode == null && 'async' == options.send.mode) {
+            try {
+                let result = await seneca.post(msg);
+                results.push(result);
+            }
+            catch (error) {
+                // handle error
+            }
+        }
+        else if (config.mode == null && 'sync' == options.send.mode) {
+            seneca.act(msg, function (err, result) {
+                if (null == err) {
+                    results.push(result);
+                }
+            });
+        }
+        else if (config.mode == 'async') {
+            try {
+                let result = await seneca.post(msg);
+                results.push(result);
+            }
+            catch (error) {
+                // handle error
+            }
+        }
+        else if (config.mode == 'sync') {
+            seneca.act(msg, function (err, result) {
+                if (null == err) {
+                    results.push(result);
+                }
+                else {
+                    // handle error
+                }
+            });
+        }
     }
 }
 function humanify(when, flags = {}) {
@@ -48,103 +113,49 @@ function humanify(when, flags = {}) {
     return +(iso.replace(/[^\d]/g, '').replace(/\d$/, ''));
 }
 function BatchProcessor(options) {
+    var _a;
     const seneca = this;
     const Patrun = seneca.util.Patrun;
     const Jsonic = seneca.util.Jsonic;
     const Deep = seneca.util.deepextend;
     const generate_id = seneca.util.Nid;
     const BatchId = generate_id();
-    let states = {};
+    let wheres = {};
     let default_whence = '';
     for (const message_whence in options.where) {
         if ('' == default_whence) {
             default_whence = message_whence;
         }
-        let state = options.where[message_whence];
-        for (const message_pattern in state.match) {
-            let workflow = state.match[message_pattern];
+        let match = (_a = options.where[message_whence]) === null || _a === void 0 ? void 0 : _a.match;
+        for (const message_pattern in match) {
+            let workflow = match[message_pattern];
             if (ALL == message_pattern) {
-                states[message_whence] = states[message_whence] || new State(new Patrun({ gex: true }));
-                states[message_whence].set_all(true);
+                wheres[message_whence] = wheres[message_whence] || new Match(new Patrun({ gex: true }));
+                wheres[message_whence].set_all(true);
             }
             else {
-                states[message_whence] = states[message_whence] || new State(new Patrun({ gex: true }));
-                states[message_whence].patrun.add(Jsonic(message_pattern), workflow);
+                wheres[message_whence] = wheres[message_whence] || new Match(new Patrun({ gex: true }));
+                wheres[message_whence].patrun.add(Jsonic(message_pattern), workflow);
             }
         }
     }
-    /*
-    if(states[default_whence]) {
-      // console.log( states[default_whence].find ({ok: true}).send )
-    }
-    */
     async function process(seneca, ctx, out = {}) {
         const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function (...args) { };
-        let state = states[default_whence];
+        let where = wheres[default_whence];
         let workflow = null;
         let results = ctx.result$ = ctx.result$ || [];
         // console.log(seneca.private$)
-        out = Deep({}, out);
+        out = { ...out };
         out.run = out.run || ('R' + generate_id());
         out.batch = out.batch || ('B' + humanify());
-        if (workflow = state.patrun.find(out)) {
-            let i = 0;
-            for (let config of workflow.send) {
-                let { msg } = config;
-                msg = typeof msg == 'string' ? { ...Jsonic(msg) } : msg;
-                // console.log(i++, msg)
-                let new_msg = {};
-                for (let key in msg) {
-                    let type = msg[key].split('~').pop();
-                    let value = inks_1.default.evaluate(msg[key], { out, ctx }, { sep: '~' });
-                    if (null != value && 'function' == typeof this[type]) {
-                        // console.log(this[type])
-                        let validate = (0, gubu_1.Gubu)(this[type]);
-                        validate(value);
-                    }
-                    if (null != value) {
-                        new_msg[key] = value;
-                    }
-                    else {
-                        new_msg[key] = msg[key];
-                    }
-                }
-                // console.log(config, new_msg)
-                if (config.mode == null && 'async' == options.send.mode) {
-                    try {
-                        let result = await seneca.post(new_msg);
-                        results.push(result);
-                    }
-                    catch (error) {
-                        // handle error
-                    }
-                }
-                else if (config.mode == null && 'sync' == options.send.mode) {
-                    seneca.act(new_msg, function (err, result) {
-                        if (null == err) {
-                            results.push(result);
-                        }
-                    });
-                }
-                else if (config.mode == 'async') {
-                    try {
-                        let result = await seneca.post(new_msg);
-                        results.push(result);
-                    }
-                    catch (error) {
-                        // handle error
-                    }
-                }
-                else if (config.mode == 'sync') {
-                    seneca.act(new_msg, function (err, result) {
-                        if (null == err) {
-                            results.push(result);
-                        }
-                        else {
-                            // handle error
-                        }
-                    });
-                }
+        if (workflow = where.find(out)) {
+            // let i = 0;
+            const send = Array.isArray(workflow.send) ? workflow.send : [workflow.send];
+            for (let config of send) {
+                let { msg, body } = config;
+                let msg_evld = Utility.evaluateMessage(seneca, ctx, out, msg, body);
+                // console.log(config, msg_evld)
+                Utility.workflowRun(seneca, msg_evld, config, options, results);
             }
             if (null != workflow.entry) {
                 let entry = workflow.entry;
@@ -153,7 +164,7 @@ function BatchProcessor(options) {
             }
             // console.log(workflow, out)
         }
-        else if (true === state.all) {
+        else if (true === where.all) {
             if (null != workflow.entry) {
                 let entry = workflow.entry;
                 (0, gubu_1.Gubu)(String)(entry);
