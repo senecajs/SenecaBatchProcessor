@@ -30,7 +30,6 @@ class Match {
 class Utility {
     static evaluateMessage(seneca, ctx, out, msg, body = null) {
         const Jsonic = seneca.util.Jsonic;
-        const globalThis = global;
         msg = Object.assign(typeof msg == 'string' ? Jsonic(msg) : { ...msg }, body);
         // console.log(i++, msg)
         let new_msg = {};
@@ -38,7 +37,6 @@ class Utility {
             let type = msg[key].split('~').pop();
             let value = inks_1.default.evaluate(msg[key], { out, ctx }, { sep: '~' });
             if (null != value && Types[type]) {
-                // console.log(globalThis[type])
                 let validate = (0, gubu_1.Gubu)(eval(type));
                 validate(value);
             }

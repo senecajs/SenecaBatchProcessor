@@ -45,7 +45,7 @@ class Utility {
 
   static evaluateMessage(seneca: any, ctx: any, out: any, msg: any, body: any = null) {
     const Jsonic = seneca.util.Jsonic
-    const globalThis: any = global
+    
     msg = Object.assign(
       typeof msg == 'string' ? Jsonic(msg) : { ...msg }, body)
     
@@ -57,7 +57,6 @@ class Utility {
       let value = (Inks as any).evaluate(msg[key], { out, ctx }, { sep: '~' })
   
       if(null != value && Types[type]) {
-        // console.log(globalThis[type])
         let validate = Gubu(eval(type))
         validate(value)
       }
