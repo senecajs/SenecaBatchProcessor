@@ -78,12 +78,16 @@ class Utility {
         let result = await seneca.post(msg)
         results.push(result)
       } catch(error) {
-    // handle error
+        // handle error
+        throw error
       }
     } else if(config.mode == null && 'sync' == options.send.mode) {
       seneca.act(msg, function(this: any, err: any, result: any) {
         if(null == err) {
           results.push(result)
+        } else {
+          // handle error
+          throw err
         }
       })
     } else if(config.mode == 'async') {
@@ -92,6 +96,7 @@ class Utility {
         results.push(result)
       } catch(error) {
         // handle error
+        throw error
       }
     } else if(config.mode == 'sync' ) {
       seneca.act(msg, function(this: any, err: any, result: any) {
@@ -99,6 +104,7 @@ class Utility {
           results.push(result)
         } else {
           // handle error
+          throw err
         }
       })
     }

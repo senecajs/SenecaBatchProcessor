@@ -57,12 +57,17 @@ class Utility {
             }
             catch (error) {
                 // handle error
+                throw error;
             }
         }
         else if (config.mode == null && 'sync' == options.send.mode) {
             seneca.act(msg, function (err, result) {
                 if (null == err) {
                     results.push(result);
+                }
+                else {
+                    // handle error
+                    throw err;
                 }
             });
         }
@@ -73,6 +78,7 @@ class Utility {
             }
             catch (error) {
                 // handle error
+                throw error;
             }
         }
         else if (config.mode == 'sync') {
@@ -82,6 +88,7 @@ class Utility {
                 }
                 else {
                     // handle error
+                    throw err;
                 }
             });
         }
