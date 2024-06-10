@@ -39,6 +39,10 @@ class Match {
     return this.patrun.find(pattern)
   }
   
+  add_pattern(pattern: any, item: any) {
+    return this.patrun.add(pattern, item)
+  }
+  
 }
 
 class Utility {
@@ -173,7 +177,7 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
         wheres.add(pattern, matchInst)
       } else {
         let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }))
-        matchInst.patrun.add(Jsonic(message_pattern), workflow)
+        matchInst.add_pattern(Jsonic(message_pattern), workflow)
         wheres.add(pattern, matchInst)
         
       }

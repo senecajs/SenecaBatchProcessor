@@ -26,6 +26,9 @@ class Match {
     find(pattern) {
         return this.patrun.find(pattern);
     }
+    add_pattern(pattern, item) {
+        return this.patrun.add(pattern, item);
+    }
 }
 class Utility {
     static evaluateMessage(seneca, ctx, out, msg, body = null) {
@@ -146,7 +149,7 @@ function BatchProcessor(options) {
             }
             else {
                 let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }));
-                matchInst.patrun.add(Jsonic(message_pattern), workflow);
+                matchInst.add_pattern(Jsonic(message_pattern), workflow);
                 wheres.add(pattern, matchInst);
             }
         }
