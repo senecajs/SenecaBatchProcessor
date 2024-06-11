@@ -101,7 +101,7 @@ describe('BatchProcessor', () => {
   
   })
   
-  describe('more complex', () => {
+  describe('entry state test', () => {
     const seneca = makeSeneca({
       send: {
         mode: 'async', // wait for transition, global setting
