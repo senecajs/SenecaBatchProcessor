@@ -21,28 +21,31 @@ const Modes: Record<string, number> = {
   ASYNC: 1
 }
 
+type WorkFlow = {
+  entry?: any
+  send?: Array<any> | Object
+}
+
+type Match = Record<string, WorkFlow>
+
 type BatchProcessorOptionsFull = {
   debug: boolean
-  send: any
-  where: any
-  generate_id?: any
+  send: {
+    mode: string
+  }
+  where: Record<string, Match>
+  generate_id?: Function
 }
 
 export type BatchProcessorOptions = Partial<BatchProcessorOptionsFull>
 
 
 // FEATURE: subsets of keys by dot separators.
-class Match {
-  all: boolean
+class Matcher {
   patrun: any
   
-  constructor(patrun: any, all: any = null) {
+  constructor(patrun: any) {
     this.patrun = patrun
-    this.all = all
-  }
-  
-  set_all(all: boolean) {
-    this.all = all
   }
   
   find(pattern: any) {
@@ -150,8 +153,9 @@ function determineMode(config: any, options: BatchProcessorOptionsFull) {
   }
 }
 
-function parseWorkflow(workflow: any, options: BatchProcessorOptionsFull) {
+function parseWorkflow(workflow: WorkFlow, options: BatchProcessorOptionsFull) {
   let parsed_workflow: any = {}
+  
   parsed_workflow['send'] = []
   
   for(let key in workflow) {
@@ -202,18 +206,20 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
   let wheres: any = new Patrun({ gex: true })
   
   for(const message_whence in options.where) {
-    let match = options.where[message_whence]?.match
+    let match: Match = (options.where[message_whence].match) as Match
     let pattern = Jsonic(message_whence)
     for(const message_pattern in match) {
       // console.log(message_pattern, pattern)
-      let workflow = match[message_pattern]
+      console.log('match: ', match)
+      let workflow: WorkFlow = match[message_pattern]
       let pat_out = ALL == message_pattern ? '' : Jsonic(message_pattern)
-      let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }))
+      let matcherInst = wheres.find(pattern) || new Matcher(new Patrun({ gex: true }))
       console.log('workflow: ', workflow)
       let parsed = parseWorkflow(workflow, options)
-      console.log('parsed workflow: ', parsed)
-      matchInst.add_pattern(pat_out, parsed)
-      wheres.add(pattern, matchInst)
+      console.log('parsed workflow: ')
+      console.dir(parsed, { depth: null })
+      matcherInst.add_pattern(pat_out, parsed)
+      wheres.add(pattern, matcherInst)
     
     }
   }
@@ -229,9 +235,6 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
     let results = ctx.result$ = ctx.result$ || []
     
     out = { ...out }
-
-
-    // console.log(seneca.private$?.act?.msg)
     
     if(null == where) {
       throw new Error("whence not found!")

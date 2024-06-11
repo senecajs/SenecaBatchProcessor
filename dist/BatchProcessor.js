@@ -20,13 +20,9 @@ const Modes = {
     ASYNC: 1
 };
 // FEATURE: subsets of keys by dot separators.
-class Match {
-    constructor(patrun, all = null) {
+class Matcher {
+    constructor(patrun) {
         this.patrun = patrun;
-        this.all = all;
-    }
-    set_all(all) {
-        this.all = all;
     }
     find(pattern) {
         return this.patrun.find(pattern);
@@ -144,7 +140,6 @@ function parseWorkflow(workflow, options) {
     return parsed_workflow;
 }
 function BatchProcessor(options) {
-    var _a;
     const seneca = this;
     const Patrun = seneca.util.Patrun;
     const Jsonic = seneca.util.Jsonic;
@@ -153,18 +148,20 @@ function BatchProcessor(options) {
     const BatchId = generate_id();
     let wheres = new Patrun({ gex: true });
     for (const message_whence in options.where) {
-        let match = (_a = options.where[message_whence]) === null || _a === void 0 ? void 0 : _a.match;
+        let match = (options.where[message_whence].match);
         let pattern = Jsonic(message_whence);
         for (const message_pattern in match) {
             // console.log(message_pattern, pattern)
+            console.log('match: ', match);
             let workflow = match[message_pattern];
             let pat_out = ALL == message_pattern ? '' : Jsonic(message_pattern);
-            let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }));
+            let matcherInst = wheres.find(pattern) || new Matcher(new Patrun({ gex: true }));
             console.log('workflow: ', workflow);
             let parsed = parseWorkflow(workflow, options);
-            console.log('parsed workflow: ', parsed);
-            matchInst.add_pattern(pat_out, parsed);
-            wheres.add(pattern, matchInst);
+            console.log('parsed workflow: ');
+            console.dir(parsed, { depth: null });
+            matcherInst.add_pattern(pat_out, parsed);
+            wheres.add(pattern, matcherInst);
         }
     }
     async function process(seneca, ctx, out = {}) {
@@ -176,7 +173,6 @@ function BatchProcessor(options) {
         let workflow = null;
         let results = ctx.result$ = ctx.result$ || [];
         out = { ...out };
-        // console.log(seneca.private$?.act?.msg)
         if (null == where) {
             throw new Error("whence not found!");
         }

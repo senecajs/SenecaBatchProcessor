@@ -1,8 +1,15 @@
+type WorkFlow = {
+    entry?: any;
+    send?: Array<any> | Object;
+};
+type Match = Record<string, WorkFlow>;
 type BatchProcessorOptionsFull = {
     debug: boolean;
-    send: any;
-    where: any;
-    generate_id?: any;
+    send: {
+        mode: string;
+    };
+    where: Record<string, Match>;
+    generate_id?: Function;
 };
 export type BatchProcessorOptions = Partial<BatchProcessorOptionsFull>;
 declare function BatchProcessor(this: any, options: BatchProcessorOptionsFull): {
