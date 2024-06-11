@@ -6,13 +6,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const inks_1 = __importDefault(require("inks"));
 const gubu_1 = require("gubu");
+const { expr } = gubu_1.Gubu;
 const ALL = '*';
 const Types = {
     'Number': 1,
     'Boolean': 1,
     'String': 1,
-    'Array': 1,
-    'Object': 1
+    // 'Array': 1,
+    // 'Object': 1
+};
+const Modes = {
+    SYNC: 0,
+    ASYNC: 1
 };
 // FEATURE: subsets of keys by dot separators.
 class Match {
@@ -30,71 +35,44 @@ class Match {
         return this.patrun.add(pattern, item);
     }
 }
-class Utility {
-    static evaluateMessage(seneca, ctx, out, msg, body = null) {
-        const Jsonic = seneca.util.Jsonic;
-        msg = Object.assign(typeof msg == 'string' ? Jsonic(msg) : { ...msg }, body);
-        // console.log(i++, msg)
-        let new_msg = {};
-        for (let key in msg) {
-            let type = msg[key].split('~').pop();
-            let value = inks_1.default.evaluate(msg[key], { out, ctx }, { sep: '~' });
-            if (null != value && Types[type]) {
-                let validate = (0, gubu_1.Gubu)(eval(type));
-                validate(value);
+function evaluateMessage(seneca, ctx, out, msg, body = null) {
+    const Jsonic = seneca.util.Jsonic;
+    msg = Object.assign(typeof msg == 'string' ? Jsonic(msg) : { ...msg }, body);
+    // console.log(i++, msg)
+    let new_msg = {};
+    for (let key in msg) {
+        let type = msg[key].split('~').pop();
+        let value = inks_1.default.evaluate(msg[key], { out, ctx }, { sep: '~' });
+        if (null != value && Types[type]) {
+            if (value.constructor !== expr({ src: type, val: value })) {
+                throw new TypeError("Invalid Type");
             }
-            if (null != value) {
-                new_msg[key] = value;
+        }
+        new_msg[key] = null == value ? msg[key] : value;
+    }
+    return new_msg;
+}
+async function workflowRun(seneca, msg, config, results) {
+    if (config.mode == Modes.ASYNC) {
+        try {
+            let result = await seneca.post(msg);
+            results.push(result);
+        }
+        catch (error) {
+            // handle error
+            throw error;
+        }
+    }
+    else if (config.mode == Modes.SYNC) {
+        seneca.act(msg, function (err, result) {
+            if (null == err) {
+                results.push(result);
             }
             else {
-                new_msg[key] = msg[key];
-            }
-        }
-        return new_msg;
-    }
-    static async workflowRun(seneca, msg, config, options, results) {
-        if (config.mode == null && 'async' == options.send.mode) {
-            try {
-                let result = await seneca.post(msg);
-                results.push(result);
-            }
-            catch (error) {
                 // handle error
-                throw error;
+                throw err;
             }
-        }
-        else if (config.mode == null && 'sync' == options.send.mode) {
-            seneca.act(msg, function (err, result) {
-                if (null == err) {
-                    results.push(result);
-                }
-                else {
-                    // handle error
-                    throw err;
-                }
-            });
-        }
-        else if (config.mode == 'async') {
-            try {
-                let result = await seneca.post(msg);
-                results.push(result);
-            }
-            catch (error) {
-                // handle error
-                throw error;
-            }
-        }
-        else if (config.mode == 'sync') {
-            seneca.act(msg, function (err, result) {
-                if (null == err) {
-                    results.push(result);
-                }
-                else {
-                    // handle error
-                    throw err;
-                }
-            });
-        }
+        });
     }
 }
 function humanify(when, flags = {}) {
@@ -127,31 +105,66 @@ function humanify(when, flags = {}) {
     }
     return +(iso.replace(/[^\d]/g, '').replace(/\d$/, ''));
 }
+function determineMode(config, options) {
+    if (config.mode == null && 'async' == options.send.mode || 'async' == config.mode) {
+        config.mode = Modes.ASYNC;
+    }
+    else if (config.mode == null && 'sync' == options.send.mode || 'sync' == config.mode) {
+        config.mode = Modes.SYNC;
+    }
+}
+function parseWorkflow(workflow, options) {
+    let parsed_workflow = {};
+    parsed_workflow['send'] = [];
+    for (let key in workflow) {
+        // let workflow_config: any = parsed_workflow[key] = {}
+        if ('send' == key) {
+            let send = parsed_workflow[key] = parsed_workflow[key] || [];
+            let config = workflow[key];
+            if (!Array.isArray(config)
+                && 'object' == typeof config) {
+                let pconfig = { ...config };
+                determineMode(pconfig, options);
+                send.push(pconfig);
+            }
+            else if (Array.isArray(config)) {
+                for (let obj of config) {
+                    let child_config = { ...obj };
+                    determineMode(child_config, options);
+                    send.push(child_config);
+                }
+            }
+        }
+        else if ('entry' == key) {
+            // process entry
+            parsed_workflow[key] = !('object' == typeof workflow[key])
+                ? workflow[key] : { ...workflow[key] };
+        }
+    }
+    return parsed_workflow;
+}
 function BatchProcessor(options) {
     var _a;
     const seneca = this;
     const Patrun = seneca.util.Patrun;
     const Jsonic = seneca.util.Jsonic;
     const Deep = seneca.util.deepextend;
-    const generate_id = seneca.util.Nid;
+    const generate_id = options.generate_id || seneca.util.Nid;
     const BatchId = generate_id();
     let wheres = new Patrun({ gex: true });
     for (const message_whence in options.where) {
         let match = (_a = options.where[message_whence]) === null || _a === void 0 ? void 0 : _a.match;
         let pattern = Jsonic(message_whence);
         for (const message_pattern in match) {
-            let workflow = match[message_pattern];
             // console.log(message_pattern, pattern)
-            if (ALL == message_pattern) {
-                let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }));
-                matchInst.set_all(workflow);
-                wheres.add(pattern, matchInst);
-            }
-            else {
-                let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }));
-                matchInst.add_pattern(Jsonic(message_pattern), workflow);
-                wheres.add(pattern, matchInst);
-            }
+            let workflow = match[message_pattern];
+            let pat_out = ALL == message_pattern ? '' : Jsonic(message_pattern);
+            let matchInst = wheres.find(pattern) || new Match(new Patrun({ gex: true }));
+            console.log('workflow: ', workflow);
+            let parsed = parseWorkflow(workflow, options);
+            console.log('parsed workflow: ', parsed);
+            matchInst.add_pattern(pat_out, parsed);
+            wheres.add(pattern, matchInst);
         }
     }
     async function process(seneca, ctx, out = {}) {
@@ -162,38 +175,45 @@ function BatchProcessor(options) {
         let where = wheres.find(whence);
         let workflow = null;
         let results = ctx.result$ = ctx.result$ || [];
-        // console.log(seneca.private$?.act?.msg)
         out = { ...out };
-        out.run = out.run || ('R' + generate_id());
-        out.batch = out.batch || ('B' + humanify());
+        // console.log(seneca.private$?.act?.msg)
         if (null == where) {
             throw new Error("whence not found!");
         }
+        // console.log(where.find(out), out)
         if (workflow = where.find(out)) {
             // let i = 0;
-            const send = Array.isArray(workflow.send) ? workflow.send : [workflow.send];
+            console.log(workflow);
+            const send = workflow.send;
             for (let config of send) {
                 let { msg, body } = config;
-                let msg_evld = Utility.evaluateMessage(seneca, ctx, out, msg, body);
+                let msg_evld = evaluateMessage(seneca, ctx, out, msg, body);
                 // console.log(config, msg_evld)
-                Utility.workflowRun(seneca, msg_evld, config, options, results);
+                workflowRun(seneca, msg_evld, config, results);
             }
             // entry report
             if (null != workflow.entry) {
                 let entry = workflow.entry;
                 entry = 'string' == typeof entry ? { state: entry } : entry;
-                BatchMonitorEntry(entry.state, entry.info || {});
+                if ('fail' == entry.state) {
+                    BatchMonitorEntry(entry.state, entry.info || { why: 'batch-process-no-match' });
+                }
+                else {
+                    BatchMonitorEntry(entry.state, entry.info || {});
+                }
             }
             // console.log(workflow, out)
+        } /*else if(workflow = where.find('')) {
+          // workflow = where.all
+          if(null != workflow.entry) {
+            let entry = workflow.entry
+            Gubu(String)(entry)
+            BatchMonitorEntry(entry, { why:'batch-process-no-match' })
+          }
         }
-        else if (null != where.all) {
-            workflow = where.all;
-            if (null != workflow.entry) {
-                let entry = workflow.entry;
-                (0, gubu_1.Gubu)(String)(entry);
-                BatchMonitorEntry(entry, { why: 'batch-process-no-match' });
-            }
-        }
+        */
+        out.run = out.run || ('R' + generate_id());
+        out.batch = out.batch || ('B' + humanify());
         return out;
     }
     return {
