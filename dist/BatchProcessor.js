@@ -31,46 +31,6 @@ class Matcher {
         return this.patrun.add(pattern, item);
     }
 }
-function evaluateMessage(seneca, ctx, out, msg, body = null) {
-    const Jsonic = seneca.util.Jsonic;
-    msg = Object.assign(typeof msg == 'string' ? Jsonic(msg) : { ...msg }, body);
-    // console.log(i++, msg)
-    let new_msg = {};
-    for (let key in msg) {
-        let type = msg[key].split('~').pop();
-        let value = inks_1.default.evaluate(msg[key], { out, ctx }, { sep: '~' });
-        if (null != value && Types[type]) {
-            if (value.constructor !== expr({ src: type, val: value })) {
-                throw new TypeError("Invalid Type");
-            }
-        }
-        new_msg[key] = null == value ? msg[key] : value;
-    }
-    return new_msg;
-}
-async function workflowRun(seneca, msg, config, results) {
-    if (config.mode == Modes.ASYNC) {
-        try {
-            let result = await seneca.post(msg);
-            results.push(result);
-        }
-        catch (error) {
-            // handle error
-            throw error;
-        }
-    }
-    else if (config.mode == Modes.SYNC) {
-        seneca.act(msg, function (err, result) {
-            if (null == err) {
-                results.push(result);
-            }
-            else {
-                // handle error
-                throw err;
-            }
-        });
-    }
-}
 function humanify(when, flags = {}) {
     const d = when ? new Date(when) : new Date();
     const iso = d.toISOString();
@@ -146,28 +106,115 @@ function BatchProcessor(options) {
     const Deep = seneca.util.deepextend;
     const generate_id = options.generate_id || seneca.util.Nid;
     const BatchId = generate_id();
+    function evaluateMessage(ctx, out, msg, body = null) {
+        msg = Object.assign(typeof msg == 'string' ? Jsonic(msg) : { ...msg }, body);
+        // console.log(i++, msg)
+        let new_msg = {};
+        for (let key in msg) {
+            let type = msg[key].split('~').pop();
+            let value = inks_1.default.evaluate(msg[key], { out, ctx }, { sep: '~' });
+            if (null != value && Types[type]) {
+                if (value.constructor !== expr({ src: type, val: value })) {
+                    throw new TypeError("Invalid Type");
+                }
+            }
+            new_msg[key] = null == value ? msg[key] : value;
+        }
+        return new_msg;
+    }
+    async function workflowRun(seneca, config, results) {
+        if ('post' == config.type) {
+            try {
+                let result = await seneca.post(config.msg);
+                results.push(result);
+            }
+            catch (error) {
+                // handle error
+                throw error;
+            }
+        }
+        else if ('act' == config.type) {
+            seneca.act(config.msg, function (err, result) {
+                if (null == err) {
+                    results.push(result);
+                }
+                else {
+                    // handle error
+                    throw err;
+                }
+            });
+        }
+    }
     let wheres = new Patrun({ gex: true });
+    // Prepare/Preprocess config
     for (const message_whence in options.where) {
         let match = (options.where[message_whence].match);
         let pattern = Jsonic(message_whence);
         for (const message_pattern in match) {
             // console.log(message_pattern, pattern)
-            console.log('match: ', match);
+            // console.log('match: ', match)
             let workflow = match[message_pattern];
             let pat_out = ALL == message_pattern ? '' : Jsonic(message_pattern);
             let matcherInst = wheres.find(pattern) || new Matcher(new Patrun({ gex: true }));
-            console.log('workflow: ', workflow);
+            // console.log('workflow: ', workflow)
             let parsed = parseWorkflow(workflow, options);
-            console.log('parsed workflow: ');
-            console.dir(parsed, { depth: null });
+            // console.log('parsed workflow: ')
+            // console.dir(parsed, { depth: null })
             matcherInst.add_pattern(pat_out, parsed);
             wheres.add(pattern, matcherInst);
         }
     }
-    async function process(seneca, ctx, out = {}) {
+    function preprocess(seneca, ctx, out = {}) {
         var _a, _b;
-        const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function (...args) { };
         const whence = (_b = (_a = seneca.private$) === null || _a === void 0 ? void 0 : _a.act) === null || _b === void 0 ? void 0 : _b.msg;
+        // console.log(whence, wheres.list())
+        let where = wheres.find(whence);
+        let workflow = null;
+        let output = {
+            whence,
+            entry: { state: 'done', info: {} },
+            send: []
+        };
+        out = { ...out };
+        if (null == where) {
+            throw new Error("whence not found!");
+        }
+        // console.log(where.find(out), out)
+        if (workflow = where.find(out)) {
+            // entry report
+            if (null != workflow.entry) {
+                let entry = workflow.entry;
+                entry = 'string' == typeof entry ? { state: entry } : entry;
+                let info = entry.info != null ?
+                    evaluateMessage(ctx, out, entry.info) : null;
+                if ('fail' == entry.state) {
+                    output.entry =
+                        { state: entry.state, info: info || { why: 'batch-process-no-match' } };
+                }
+                else {
+                    output.entry =
+                        { state: entry.state, info: info || {} };
+                }
+            }
+            const send = workflow.send;
+            for (let config of send) {
+                let { msg, body } = config;
+                let msg_evld = evaluateMessage(ctx, out, msg, body);
+                // console.log('preprocess: ', config, msg_evld)
+                // seneca.private$.actrouter.find(msg_evld)
+                output.send.push({
+                    msg: msg_evld,
+                    type: Modes.ASYNC == config.mode ? 'post' : 'act'
+                });
+                // workflowRun(seneca, msg_evld, config)
+            }
+            // console.log(workflow, out)
+        }
+        return output;
+    }
+    async function process(execOrder, ctx, out = {}) {
+        const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function (...args) { };
+        const { whence, entry, send } = execOrder;
         // console.log(whence, wheres.list())
         let where = wheres.find(whence);
         let workflow = null;
@@ -177,44 +224,18 @@ function BatchProcessor(options) {
             throw new Error("whence not found!");
         }
         // console.log(where.find(out), out)
-        if (workflow = where.find(out)) {
-            // let i = 0;
-            console.log(workflow);
-            const send = workflow.send;
-            for (let config of send) {
-                let { msg, body } = config;
-                let msg_evld = evaluateMessage(seneca, ctx, out, msg, body);
-                // console.log(config, msg_evld)
-                workflowRun(seneca, msg_evld, config, results);
-            }
-            // entry report
-            if (null != workflow.entry) {
-                let entry = workflow.entry;
-                entry = 'string' == typeof entry ? { state: entry } : entry;
-                if ('fail' == entry.state) {
-                    BatchMonitorEntry(entry.state, entry.info || { why: 'batch-process-no-match' });
-                }
-                else {
-                    BatchMonitorEntry(entry.state, entry.info || {});
-                }
-            }
-            // console.log(workflow, out)
-        } /*else if(workflow = where.find('')) {
-          // workflow = where.all
-          if(null != workflow.entry) {
-            let entry = workflow.entry
-            Gubu(String)(entry)
-            BatchMonitorEntry(entry, { why:'batch-process-no-match' })
-          }
+        for (let config of send) {
+            await workflowRun(seneca, config, results);
         }
-        */
+        BatchMonitorEntry(entry.state, entry.info);
         out.run = out.run || ('R' + generate_id());
         out.batch = out.batch || ('B' + humanify());
         return out;
     }
     return {
         exports: {
-            process
+            process,
+            preprocess
         }
     };
 }

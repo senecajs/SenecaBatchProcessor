@@ -19,6 +19,7 @@ describe('BatchProcessor', () => {
       .use(BatchProcessor)
     await seneca.ready()
     expect(seneca.export('BatchProcessor/process')).toBeDefined()
+    expect(seneca.export('BatchProcessor/preprocess')).toBeDefined()
     await seneca.close()
   })
 
@@ -62,47 +63,72 @@ describe('BatchProcessor', () => {
     await seneca.ready()
     
     const process = seneca.export('BatchProcessor/process')
+    const preprocess = seneca.export('BatchProcessor/preprocess')
     
-    let state = { c: 0, msgs: [] }
-    let out, ctx, report
-    
-    seneca.message('aim:bar', async function(msg) {
-      state.ok = true
-      state.c++
-      // console.log('MSG: ', msg)
-      state.msgs.push(seneca.util.clean(msg))
-      return { ok: true, now: Date.now() }
-    })
+    let out, ctx
     
     seneca.message('aim:foo,color:red', async function(msg) {
-    
       out = { ok: true, planet: 'mars' }
       ctx = { place: { order: 1 } }
-    
-      out = await process(this, ctx, out)
-    
-      await wait(111)
-    
+      
+      let execOrder = preprocess(this, ctx, out)
+      
+      return { execOrder, }
       // console.log(out, state, ctx)
-    
-      expect(state).toEqual({
-        ok: true,
-        c: 2,
-        msgs: [
-          { aim: 'bar', color: 'blue', planet: 'mars', order: 1 },
-          { aim: 'bar', color: 'green', planet: 'mars', order: 1 }
-        ]
-      })
-      expect(ctx.result$.length).toEqual(2)
-    
     })
     
-    await seneca.post('aim:foo,color:red')
+    let { execOrder } = await seneca.post('aim:foo,color:red')
+    out = await process(execOrder, ctx, out)
+    
+    await wait(111)
+    
+    // console.dir(execOrder, { depth: null })
+    expect(execOrder).toEqual({
+      whence: {
+        aim: 'foo',
+        color: 'red',
+      },
+      entry: {
+        state: 'done',
+        info: {}
+      },
+      send: [
+        {
+          msg: { aim: 'bar', color: 'blue', planet: 'mars', order: 1 },
+          type: 'post'
+        },
+        {
+          msg: { aim: 'bar', color: 'green', planet: 'mars', order: 1 },
+          type: 'act'
+        }
+      ]
+    })
+    
+    expect(ctx.result$).toEqual([
+      {
+        ok: true,
+        whence: {
+          aim: 'bar',
+          color: 'blue'
+        }
+      },
+      {
+        ok: true,
+        whence: { 
+          aim: 'bar',
+          color: 'green'
+        } 
+      }
+    ])
+    
+    expect(out.run).toBeDefined()
+    expect(out.batch).toBeDefined()
   
   })
   
+
   describe('entry state test', () => {
-    const seneca = makeSeneca({
+    let opts = {
       send: {
         mode: 'async', // wait for transition, global setting
       },
@@ -149,125 +175,226 @@ describe('BatchProcessor', () => {
           }
         }
       }
-    })
+    }
     
-    let state = { c: 0 }
-    let out, ctx, report, bme
-    
-    let process, batch
-    
-    beforeAll(async () => {
-    
-      await seneca.ready()
-      process = seneca.export('BatchProcessor/process')
-      batch = seneca.BatchMonitor('b0', 'r0')
-    
-      seneca.message('aim:bar', async function(msg) {
-        state.ok = true
-        state.c++
-        // console.log('aim:bar', msg)
-      
-        return { ok: true, now: Date.now() }
-      })
-    
-      seneca.message('aim:monitor', async function(msg) {
-        state.ok = false
-        state.msg = msg.msg
-        state.c++
-        // console.log('aim:monitorr: ', msg)
-        return { ok: false, now: Date.now() }
-      })
-      
-      seneca.message('test:ss', async function(msg) {
-      
-        const process = seneca.export('BatchProcessor/process')
-        let out = { ok: true, planet: 'mars' }
-        let ctx = { place: { order: 1 } }
-        
-        process(this, ctx, out)
-        return {}
-      })
-    
-    })
-
+    test('blank test', async () => {})
     
     test('state: "done"', async () => {
+      const seneca = makeSeneca(opts)
+      await seneca.ready()
+    
+      const process = seneca.export('BatchProcessor/process')
+      const preprocess = seneca.export('BatchProcessor/preprocess')
+      let batch = seneca.BatchMonitor('b0', 'r0')
+      
+      let out, ctx
     
       seneca.message('aim:foo,color:red', async function(msg) {
-        bme = await batch.entry('episode', 'ingest', 'e0', { podcast_id: 'p0' })
+        let bme = await batch.entry('episode', 'ingest', 'e0', { podcast_id: 'p0' })
     
         out = { ok: true, planet: 'mars' }
         ctx = { place: { order: 1 }, BatchMonitorEntry$: bme }
-    
-        out = await process(this, ctx, out)
-    
-        await wait(111)
-    
-        report = await batch.report('episode', { podcast_id: 'p0' })
-    
-        console.log(report.format())
-    
+        
+        let execOrder = preprocess(this, ctx, out)
+        
+        return { execOrder, }
         // console.log(out, ctx, state)
-    
-        expect(report.td.line.e0).toBeTruthy()
-        expect(report.td.line.e0.step.ingest.state).toEqual('done')
-        expect(state).toEqual({ok: true, c: 2})
-        expect(ctx.result$.length).toEqual(2)
       })
-      await seneca.post('aim:foo,color:red')
       
+      let { execOrder } = await seneca.post('aim:foo,color:red')
+      // console.dir(execOrder, {depth: null})
       
+      expect(execOrder).toEqual({
+        whence: {
+          aim: 'foo',
+          color: 'red',
+        },
+        entry: {
+          state: 'done',
+          info: {}
+        },
+        send: [
+          {
+            msg: { aim: 'bar', color: 'blue', planet: 'mars', order: 1 },
+            type: 'post'
+          },
+          {
+            msg: { aim: 'bar', color: 'green', planet: 'mars', order: 1 },
+            type: 'act'
+          }
+        ]
+      })
+      
+      out = await process(execOrder, ctx, out)
+      
+      await wait(111)
+      
+      let report = await batch.report('episode', { podcast_id: 'p0' })
+    
+      console.log(report.format())
+      
+      // await wait(111)
+      
+      expect(report.td.line.e0).toBeTruthy()
+      expect(report.td.line.e0.step.ingest.state).toEqual('done')
+      expect(ctx.result$).toEqual([
+        {
+          ok: true,
+          whence: {
+            aim: 'bar',
+            color: 'blue'
+          }
+        },
+        {
+          ok: true,
+          whence: { 
+            aim: 'bar',
+            color: 'green'
+          } 
+        }
+      ])
+      expect(out.run).toBeDefined()
+      expect(out.batch).toBeDefined()
     
     })
+    
     
     test('state: "fail"', async () => {
+      const seneca = makeSeneca(opts)
+      await seneca.ready()
+    
+      const process = seneca.export('BatchProcessor/process')
+      const preprocess = seneca.export('BatchProcessor/preprocess')
+      let batch = seneca.BatchMonitor('b0', 'r0')
+      
+      let out, ctx
+    
       seneca.message('aim:foo,color:red', async function(msg) {
-        bme = await batch.entry('episode', 'ingest', 'e1', { podcast_id: 'p0' })
-        state = { c: 0 }
-        out = { ok: false }
-        ctx = { msg$: "failed", BatchMonitorEntry$: bme }
+        let bme = await batch.entry('episode', 'ingest', 'e0', { podcast_id: 'p0' })
     
-        out = await process(this, ctx, out)
-        await wait(111)
-    
-        report = await batch.report('episode', { podcast_id: 'p0' })
-    
-        console.log(report.format())
-        // console.log(report.td.line.e1)
-        expect(report.td.line.e1).toBeTruthy()
-        expect(report.td.line.e1.step.ingest.state).toEqual('fail')
-        expect(state).toEqual({ok: false, msg: 'failed', c: 1 })
-        expect(ctx.result$.length).toEqual(1)
-     })
-     await seneca.post('aim:foo,color:red')
-    
-    })
-    
-    test('match "*"', async () => {
-      seneca.message('aim:foo,color:red', async function(msg) {
-        bme = await batch.entry('episode', 'ingest', 'e2', { podcast_id: 'p0' })
-        state = {}
-        out = { nomatch: null }
-        ctx = { msg$: "failed", BatchMonitorEntry$: bme }
-    
-        out = await process(this, ctx, out)
-        await wait(111)
-        report = await batch.report('episode', { podcast_id: 'p0' })
-    
-        console.log(report.format())
-        // console.log(report.td.line.e2)
-    
-        expect(report.td.line.e2).toBeTruthy()
-        expect(report.td.line.e2.step.ingest.state).toEqual('fail')
-        expect(report.td.line.e2.step.ingest.why).toEqual('batch-process-no-match')
-        expect(state).toEqual({})
-        expect(ctx.result$.length).toEqual(0)
-      // console.log(out, ctx, state)
+        out = { ok: false, why: 'failed' }
+        ctx = { msg$: 'failed', BatchMonitorEntry$: bme }
+        
+        let execOrder = preprocess(this, ctx, out)
+        
+        return { execOrder, }
+        // console.log(out, ctx, state)
       })
-      await seneca.post('aim:foo,color:red')
+      
+      let { execOrder } = await seneca.post('aim:foo,color:red')
+      // console.dir(execOrder, {depth: null})
+      
+      expect(execOrder).toEqual({
+        whence: {
+          aim: 'foo',
+          color: 'red',
+        },
+        entry: {
+          state: 'fail',
+          info: {
+            why: 'failed'
+          }
+        },
+        send: [
+          {
+            msg: {
+              aim: 'monitor',
+              fail: 'msg',
+              msg: 'failed',
+              out: { ok: false, why: 'failed' } 
+            },
+            type: 'post'
+          }
+        ]
+      })
+      
+      out = await process(execOrder, ctx, out)
+      
+      await wait(111)
+      
+      let report = await batch.report('episode', { podcast_id: 'p0' })
+    
+      console.log(report.format())
+      
+      // await wait(111)
+      
+      expect(report.td.line.e0).toBeTruthy()
+      expect(report.td.line.e0.step.ingest.state).toEqual('fail')
+      expect(ctx.result$).toEqual([
+        {
+          ok: false,
+          whence: {
+            aim: 'monitor'
+          }
+        }
+      ])
+      expect(out.run).toBeDefined()
+      expect(out.batch).toBeDefined()
+    
     })
     
+
+    test('match "*"', async () => {
+      const seneca = makeSeneca(opts)
+      await seneca.ready()
+    
+      const process = seneca.export('BatchProcessor/process')
+      const preprocess = seneca.export('BatchProcessor/preprocess')
+      let batch = seneca.BatchMonitor('b0', 'r0')
+      
+      let out, ctx
+    
+      seneca.message('aim:foo,color:red', async function(msg) {
+        let bme = await batch.entry('episode', 'ingest', 'e0', { podcast_id: 'p0' })
+    
+        out = { nomatch: null }
+        ctx = { msg$: 'failed', BatchMonitorEntry$: bme }
+        
+        let execOrder = preprocess(this, ctx, out)
+        
+        return { execOrder, }
+        // console.log(out, ctx, state)
+      })
+      
+      let { execOrder } = await seneca.post('aim:foo,color:red')
+      // console.dir(execOrder, {depth: null})
+      
+      expect(execOrder).toEqual({
+        whence: {
+          aim: 'foo',
+          color: 'red',
+        },
+        entry: {
+          state: 'fail',
+          info: {
+            why: 'batch-process-no-match'
+          }
+        },
+        send: []
+      })
+      
+      out = await process(execOrder, ctx, out)
+      
+      await wait(111)
+      
+      let report = await batch.report('episode', { podcast_id: 'p0' })
+    
+      console.log(report.format())
+      
+      // await wait(111)
+      
+      expect(report.td.line.e0).toBeTruthy()
+      expect(report.td.line.e0.step.ingest.state).toEqual('fail')
+      expect(ctx.result$.length).toEqual(0)
+      
+      expect(out.run).toBeDefined()
+      expect(out.batch).toBeDefined()
+       
+    })
+     
+      
   })
+
 
 })
 
@@ -297,6 +424,16 @@ function makeSeneca(opts: any = {}) {
         }
       }
     })
+   
+  seneca.message('aim:bar', async function(msg) {   
+    return { ok: true, whence: { aim: 'bar', color: msg.color } }
+  })
+    
+  seneca.message('aim:monitor', async function(msg) {
+    return { ok: false, whence: { aim: 'monitor' } }
+  })
+    
+    
     
     
   return seneca

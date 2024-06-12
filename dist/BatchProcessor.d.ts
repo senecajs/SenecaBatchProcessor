@@ -14,7 +14,8 @@ type BatchProcessorOptionsFull = {
 export type BatchProcessorOptions = Partial<BatchProcessorOptionsFull>;
 declare function BatchProcessor(this: any, options: BatchProcessorOptionsFull): {
     exports: {
-        process: (seneca: any, ctx: any, out?: any) => Promise<any>;
+        process: (execOrder: any, ctx: any, out?: any) => Promise<any>;
+        preprocess: (seneca: any, ctx: any, out?: any) => any;
     };
 };
 export default BatchProcessor;
