@@ -83,7 +83,8 @@ describe('BatchProcessor', () => {
     await wait(111)
     
     // console.dir(execOrder, { depth: null })
-    expect(execOrder).toEqual({
+    expect(JSON.stringify(execOrder)).toEqual(
+    JSON.stringify({
       whence: {
         aim: 'foo',
         color: 'red',
@@ -102,7 +103,7 @@ describe('BatchProcessor', () => {
           type: 'act'
         }
       ]
-    })
+    }))
     
     expect(ctx.result$).toEqual([
       {
@@ -204,7 +205,7 @@ describe('BatchProcessor', () => {
       let { execOrder } = await seneca.post('aim:foo,color:red')
       // console.dir(execOrder, {depth: null})
       
-      expect(execOrder).toEqual({
+      expect(JSON.stringify(execOrder)).toEqual(JSON.stringify({
         whence: {
           aim: 'foo',
           color: 'red',
@@ -223,7 +224,7 @@ describe('BatchProcessor', () => {
             type: 'act'
           }
         ]
-      })
+      }))
       
       out = await process(execOrder, ctx, out)
       
@@ -284,7 +285,7 @@ describe('BatchProcessor', () => {
       let { execOrder } = await seneca.post('aim:foo,color:red')
       // console.dir(execOrder, {depth: null})
       
-      expect(execOrder).toEqual({
+      expect(JSON.stringify(execOrder)).toEqual(JSON.stringify({
         whence: {
           aim: 'foo',
           color: 'red',
@@ -306,7 +307,7 @@ describe('BatchProcessor', () => {
             type: 'post'
           }
         ]
-      })
+      }))
       
       out = await process(execOrder, ctx, out)
       
@@ -351,6 +352,7 @@ describe('BatchProcessor', () => {
         ctx = { msg$: 'failed', BatchMonitorEntry$: bme }
         
         let execOrder = preprocess(this, ctx, out)
+        out = await execOrder.run()
         
         return { execOrder, }
         // console.log(out, ctx, state)
@@ -359,7 +361,7 @@ describe('BatchProcessor', () => {
       let { execOrder } = await seneca.post('aim:foo,color:red')
       // console.dir(execOrder, {depth: null})
       
-      expect(execOrder).toEqual({
+      expect(JSON.stringify(execOrder)).toEqual(JSON.stringify({
         whence: {
           aim: 'foo',
           color: 'red',
@@ -371,9 +373,9 @@ describe('BatchProcessor', () => {
           }
         },
         send: []
-      })
+      }))
       
-      out = await process(execOrder, ctx, out)
+      /// OR, INSTEAD OF run: out = await process(execOrder, ctx, out)
       
       await wait(111)
       

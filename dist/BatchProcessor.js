@@ -71,7 +71,7 @@ function determineMode(config, options) {
 }
 function parseWorkflow(workflow, options) {
     let parsed_workflow = {};
-    parsed_workflow['send'] = [];
+    parsed_workflow.send = [];
     for (let key in workflow) {
         // let workflow_config: any = parsed_workflow[key] = {}
         if ('send' == key) {
@@ -87,6 +87,7 @@ function parseWorkflow(workflow, options) {
                 for (let obj of config) {
                     let child_config = { ...obj };
                     determineMode(child_config, options);
+                    // console.log(child_config)
                     send.push(child_config);
                 }
             }
@@ -166,11 +167,13 @@ function BatchProcessor(options) {
     }
     function preprocess(seneca, ctx, out = {}) {
         var _a, _b;
+        const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function (...args) { };
         const whence = (_b = (_a = seneca.private$) === null || _a === void 0 ? void 0 : _a.act) === null || _b === void 0 ? void 0 : _b.msg;
+        let results = ctx.result$ = ctx.result$ || [];
         // console.log(whence, wheres.list())
         let where = wheres.find(whence);
         let workflow = null;
-        let output = {
+        let output_workflow = {
             whence,
             entry: { state: 'done', info: {} },
             send: []
@@ -185,16 +188,12 @@ function BatchProcessor(options) {
             if (null != workflow.entry) {
                 let entry = workflow.entry;
                 entry = 'string' == typeof entry ? { state: entry } : entry;
-                let info = entry.info != null ?
+                let info = null != entry.info ?
                     evaluateMessage(ctx, out, entry.info) : null;
-                if ('fail' == entry.state) {
-                    output.entry =
-                        { state: entry.state, info: info || { why: 'batch-process-no-match' } };
-                }
-                else {
-                    output.entry =
-                        { state: entry.state, info: info || {} };
-                }
+                output_workflow.entry = {
+                    state: entry.state,
+                    info: info || ('fail' === entry.state ? { why: 'batch-process-no-match' } : {})
+                };
             }
             const send = workflow.send;
             for (let config of send) {
@@ -202,15 +201,49 @@ function BatchProcessor(options) {
                 let msg_evld = evaluateMessage(ctx, out, msg, body);
                 // console.log('preprocess: ', config, msg_evld)
                 // seneca.private$.actrouter.find(msg_evld)
-                output.send.push({
+                output_workflow.send.push({
                     msg: msg_evld,
-                    type: Modes.ASYNC == config.mode ? 'post' : 'act'
+                    type: Modes.ASYNC == config.mode ? 'post' : 'act',
+                    run: Modes.ASYNC == config.mode ?
+                        (async function () {
+                            try {
+                                let result = await seneca.post(config.msg);
+                                results.push(result);
+                            }
+                            catch (error) {
+                                // handle error
+                                throw error;
+                            }
+                        }) :
+                        (function () {
+                            seneca.act(config.msg, function (err, result) {
+                                if (null == err) {
+                                    results.push(result);
+                                }
+                                else {
+                                    // handle error
+                                    throw err;
+                                }
+                            });
+                        })
                 });
                 // workflowRun(seneca, msg_evld, config)
             }
             // console.log(workflow, out)
         }
-        return output;
+        output_workflow.run = async function () {
+            let entry = output_workflow.entry;
+            for (let { run } of output_workflow.send) {
+                await run();
+            }
+            BatchMonitorEntry(entry.state, entry.info);
+            out.run = out.run || ('R' + generate_id());
+            out.batch = out.batch || ('B' + humanify());
+            return out;
+        };
+        // console.log('preprocess: ')
+        // console.dir(output_workflow, { depth: null })
+        return output_workflow;
     }
     async function process(execOrder, ctx, out = {}) {
         const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function (...args) { };

@@ -106,7 +106,7 @@ function determineMode(config: any, options: BatchProcessorOptionsFull) {
 function parseWorkflow(workflow: WorkFlow, options: BatchProcessorOptionsFull) {
   let parsed_workflow: any = {}
   
-  parsed_workflow['send'] = []
+  parsed_workflow.send = []
   
   for(let key in workflow) {
     // let workflow_config: any = parsed_workflow[key] = {}
@@ -124,6 +124,7 @@ function parseWorkflow(workflow: WorkFlow, options: BatchProcessorOptionsFull) {
         for(let obj of config) {
           let child_config = { ...obj }
           determineMode(child_config, options)
+          // console.log(child_config)
           
           send.push(child_config)
         }
@@ -221,13 +222,15 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
   }
   
   function preprocess(seneca: any, ctx: any, out: any = {}) {
-  
+    const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function(...args: any) {}
+    
     const whence = seneca.private$?.act?.msg
+    let results = ctx.result$ = ctx.result$ || []
     
     // console.log(whence, wheres.list())
     let where = wheres.find(whence)
     let workflow: any = null
-    let output: any = {
+    let output_workflow: any = {
       whence,
       entry: { state: 'done', info: {} },
       send: []
@@ -250,13 +253,12 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
         let info = null != entry.info ? 
           evaluateMessage(ctx, out, entry.info) : null
         
-        if('fail' == entry.state) {
-          output.entry = 
-            { state: entry.state, info: info || { why: 'batch-process-no-match' } }
-        } else {
-          output.entry = 
-            { state: entry.state, info: info || {}}
+        output_workflow.entry = {
+          state: entry.state,
+          info: 
+            info || ('fail' === entry.state ? { why: 'batch-process-no-match' } : {})
         }
+        
         
       }
       
@@ -269,9 +271,30 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
         // console.log('preprocess: ', config, msg_evld)
         // seneca.private$.actrouter.find(msg_evld)
         
-        output.send.push({
-          msg: msg_evld, 
-          type: Modes.ASYNC == config.mode ? 'post' : 'act'
+        output_workflow.send.push({
+          msg: msg_evld,
+          type: Modes.ASYNC == config.mode ? 'post' : 'act',
+          run: Modes.ASYNC == config.mode ?
+            (async function() {
+              try {
+                let result = await seneca.post(config.msg)
+                results.push(result)
+              } catch(error) {
+                // handle error
+                throw error
+              }
+            }) :
+            (function () {
+              seneca.act(config.msg, function(this: any, err: any, result: any) {
+                if(null == err) {
+                  results.push(result)
+                } else {
+                  // handle error
+                  throw err
+                }
+              })
+            })
+          
         })
         
         // workflowRun(seneca, msg_evld, config)
@@ -280,7 +303,25 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
       // console.log(workflow, out)
     }
     
-    return output
+    output_workflow.run = async function() {
+      let entry = output_workflow.entry
+    
+      for(let { run } of output_workflow.send) {
+        await run()
+      }
+      
+      BatchMonitorEntry(entry.state, entry.info)
+      
+      out.run = out.run || ('R' + generate_id())
+      out.batch = out.batch || ('B' + humanify())
+      
+      return out
+    }
+    
+    // console.log('preprocess: ')
+    // console.dir(output_workflow, { depth: null })
+    
+    return output_workflow
   }
 
   async function process(execOrder: any, ctx: any, out: any = {}) {
