@@ -55,9 +55,10 @@
   "peerDependencies": {
     "@seneca/entity-util": ">=3",
     "seneca": ">=4",
-    "seneca-entity": ">=25"
+    "seneca-entity": ">=25",
+    "gubu": ">=7"
   },
   "dependencies": {
-    "inks": "^2.0.0"
+    "inks": "3.0.1"
   }
 }
