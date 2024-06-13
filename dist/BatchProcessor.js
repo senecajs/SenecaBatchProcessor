@@ -245,12 +245,11 @@ function BatchProcessor(options) {
         // console.dir(output_workflow, { depth: null })
         return output_workflow;
     }
-    async function process(execOrder, ctx, out = {}) {
+    async function process(workflowExec, ctx, out = {}) {
         const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function (...args) { };
-        const { whence, entry, send } = execOrder;
+        const { whence, entry, send } = workflowExec;
         // console.log(whence, wheres.list())
         let where = wheres.find(whence);
-        let workflow = null;
         let results = ctx.result$ = ctx.result$ || [];
         out = { ...out };
         if (null == where) {

@@ -324,14 +324,13 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
     return output_workflow
   }
 
-  async function process(execOrder: any, ctx: any, out: any = {}) {
+  async function process(workflowExec: any, ctx: any, out: any = {}) {
   
     const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function(...args: any) {}
-    const { whence, entry, send } = execOrder
+    const { whence, entry, send } = workflowExec
     
     // console.log(whence, wheres.list())
     let where = wheres.find(whence)
-    let workflow: any = null
     let results = ctx.result$ = ctx.result$ || []
     
     out = { ...out }

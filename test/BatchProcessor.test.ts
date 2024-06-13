@@ -71,19 +71,19 @@ describe('BatchProcessor', () => {
       out = { ok: true, planet: 'mars' }
       ctx = { place: { order: 1 } }
       
-      let execOrder = preprocess(this, ctx, out)
+      let workflow = preprocess(this, ctx, out)
       
-      return { execOrder, }
+      return { workflow, }
       // console.log(out, state, ctx)
     })
     
-    let { execOrder } = await seneca.post('aim:foo,color:red')
-    out = await process(execOrder, ctx, out)
+    let { workflow } = await seneca.post('aim:foo,color:red')
+    out = await process(workflow, ctx, out)
     
     await wait(111)
     
-    // console.dir(execOrder, { depth: null })
-    expect(JSON.stringify(execOrder)).toEqual(
+    // console.dir(workflow, { depth: null })
+    expect(JSON.stringify(workflow)).toEqual(
     JSON.stringify({
       whence: {
         aim: 'foo',
@@ -196,16 +196,16 @@ describe('BatchProcessor', () => {
         out = { ok: true, planet: 'mars' }
         ctx = { place: { order: 1 }, BatchMonitorEntry$: bme }
         
-        let execOrder = preprocess(this, ctx, out)
+        let workflow = preprocess(this, ctx, out)
         
-        return { execOrder, }
+        return { workflow, }
         // console.log(out, ctx, state)
       })
       
-      let { execOrder } = await seneca.post('aim:foo,color:red')
-      // console.dir(execOrder, {depth: null})
+      let { workflow } = await seneca.post('aim:foo,color:red')
+      // console.dir(workflow, {depth: null})
       
-      expect(JSON.stringify(execOrder)).toEqual(JSON.stringify({
+      expect(JSON.stringify(workflow)).toEqual(JSON.stringify({
         whence: {
           aim: 'foo',
           color: 'red',
@@ -226,7 +226,7 @@ describe('BatchProcessor', () => {
         ]
       }))
       
-      out = await process(execOrder, ctx, out)
+      out = await process(workflow, ctx, out)
       
       await wait(111)
       
@@ -276,16 +276,16 @@ describe('BatchProcessor', () => {
         out = { ok: false, why: 'failed' }
         ctx = { msg$: 'failed', BatchMonitorEntry$: bme }
         
-        let execOrder = preprocess(this, ctx, out)
+        let workflow = preprocess(this, ctx, out)
         
-        return { execOrder, }
+        return { workflow, }
         // console.log(out, ctx, state)
       })
       
-      let { execOrder } = await seneca.post('aim:foo,color:red')
-      // console.dir(execOrder, {depth: null})
+      let { workflow } = await seneca.post('aim:foo,color:red')
+      // console.dir(workflow, {depth: null})
       
-      expect(JSON.stringify(execOrder)).toEqual(JSON.stringify({
+      expect(JSON.stringify(workflow)).toEqual(JSON.stringify({
         whence: {
           aim: 'foo',
           color: 'red',
@@ -309,7 +309,7 @@ describe('BatchProcessor', () => {
         ]
       }))
       
-      out = await process(execOrder, ctx, out)
+      out = await process(workflow, ctx, out)
       
       await wait(111)
       
@@ -351,17 +351,17 @@ describe('BatchProcessor', () => {
         out = { nomatch: null }
         ctx = { msg$: 'failed', BatchMonitorEntry$: bme }
         
-        let execOrder = preprocess(this, ctx, out)
-        out = await execOrder.run()
+        let workflow = preprocess(this, ctx, out)
+        out = await workflow.run()
         
-        return { execOrder, }
+        return { workflow, }
         // console.log(out, ctx, state)
       })
       
-      let { execOrder } = await seneca.post('aim:foo,color:red')
-      // console.dir(execOrder, {depth: null})
+      let { workflow } = await seneca.post('aim:foo,color:red')
+      // console.dir(workflow, {depth: null})
       
-      expect(JSON.stringify(execOrder)).toEqual(JSON.stringify({
+      expect(JSON.stringify(workflow)).toEqual(JSON.stringify({
         whence: {
           aim: 'foo',
           color: 'red',
@@ -375,7 +375,7 @@ describe('BatchProcessor', () => {
         send: []
       }))
       
-      /// OR, INSTEAD OF run: out = await process(execOrder, ctx, out)
+      /// OR, INSTEAD OF run: out = await process(workflow, ctx, out)
       
       await wait(111)
       
