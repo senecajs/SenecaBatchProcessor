@@ -109,3 +109,4 @@ yarn.lock
 
 test/local-config.js
 
+*.swp
