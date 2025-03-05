@@ -1,5 +1,5 @@
 "use strict";
-/* Copyright © 2024 Seneca Project Contributors, MIT License. */
+/* Copyright © 2025 Seneca Project Contributors, MIT License. */
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };

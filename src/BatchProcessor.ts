@@ -1,4 +1,4 @@
-/* Copyright © 2024 Seneca Project Contributors, MIT License. */
+/* Copyright © 2025 Seneca Project Contributors, MIT License. */
 
 import Inks from 'inks'
 import { Gubu } from 'gubu'

@@ -1,4 +1,4 @@
-/* Copyright © 2024 Seneca Project Contributors, MIT License. */
+/* Copyright © 2025 Seneca Project Contributors, MIT License. */
 
 import Seneca from 'seneca'
 // import SenecaMsgTest from 'seneca-msg-test'
