@@ -196,7 +196,8 @@ describe('BatchProcessor', () => {
       seneca.message('aim:foo,color:red', async function(msg) {
         let bme = await batch.entry('episode', 'ingest', 'e0', { podcast_id: 'p0' })
     
-        out = { ok: true, planet: 'mars' }
+    	// NOTE: Should match "ok: true" but is essentially ignored according to the configuration.
+        out = { ok: true, planet: 'mars', ddddd: 1, dd: 2 }
         ctx = { place: { order: 1 }, BatchMonitorEntry$: bme }
         
         let workflow = preprocess(this, ctx, out)
