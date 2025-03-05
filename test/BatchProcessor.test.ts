@@ -107,7 +107,6 @@ describe('BatchProcessor', () => {
       ]
     }))
     expect(workflow.run).toBeInstanceOf(Function)
-    
     expect(ctx.result$).toEqual([
       {
         ok: true,
@@ -180,8 +179,6 @@ describe('BatchProcessor', () => {
         }
       }
     }
-    
-    test('blank test', async () => {})
     
     test('state: "done"', async () => {
       const seneca = makeSeneca(opts)
