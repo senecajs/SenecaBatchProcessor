@@ -78,6 +78,8 @@ describe('BatchProcessor', () => {
     })
     
     let { workflow } = await seneca.post('aim:foo,color:red')
+    
+    
     out = await process(workflow, ctx, out)
     
     await wait(111)
@@ -104,6 +106,7 @@ describe('BatchProcessor', () => {
         }
       ]
     }))
+    expect(workflow.run).toBeInstanceOf(Function)
     
     expect(ctx.result$).toEqual([
       {
@@ -225,6 +228,9 @@ describe('BatchProcessor', () => {
           }
         ]
       }))
+      expect(workflow.run).toBeInstanceOf(Function)
+      // NOTE: Workflow can be processed via run but "process" below is recommeded since json can't serialize functions
+      // out = await workflow.run()
       
       out = await process(workflow, ctx, out)
       
@@ -254,6 +260,7 @@ describe('BatchProcessor', () => {
           } 
         }
       ])
+      
       expect(out.run).toBeDefined()
       expect(out.batch).toBeDefined()
     
@@ -308,6 +315,7 @@ describe('BatchProcessor', () => {
           }
         ]
       }))
+      expect(workflow.run).toBeInstanceOf(Function)
       
       out = await process(workflow, ctx, out)
       
@@ -374,6 +382,7 @@ describe('BatchProcessor', () => {
         },
         send: []
       }))
+      expect(workflow.run).toBeInstanceOf(Function)
       
       /// OR, INSTEAD OF run: out = await process(workflow, ctx, out)
       
