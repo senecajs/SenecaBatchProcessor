@@ -50,11 +50,11 @@
     "prettier": "3.3.1",
     "seneca-msg-test": "^4.1.0",
     "seneca": "4.0.0-rc2",
-    "typescript": "^5.4.5"
+    "typescript": "5.4.5"
   },
   "peerDependencies": {
     "@seneca/entity-util": ">=3",
-    "seneca": ">=4",
+    "seneca": ">=3||>=4.0.0-rc2",
     "seneca-entity": ">=25",
     "gubu": ">=7"
   },

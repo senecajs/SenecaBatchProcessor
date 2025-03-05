@@ -165,7 +165,8 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
       let value = (Inks as any).evaluate(msg[key], { out, ctx }, { sep: '~' })
   
       if(null != value && Types[type]) {
-        if(value.constructor !== expr({ src: type, val: value })) {
+        // console.log(value.constructor, [ expr({ src: type, val: value }).t ] )
+        if(typeof value !== (expr({ src: type, val: value }) as any).t) {
           throw new TypeError("Invalid Type")
         }
       }
