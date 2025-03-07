@@ -159,6 +159,13 @@ Review the [unit tests](test/BatchProcessor.test.ts) for more examples.
 <!--START:options-->
 
 
+## Options
+
+* `debug` : boolean
+* `send` : object
+* `where` : object
+* `init$` : boolean
+
 
 <!--END:options-->
 
