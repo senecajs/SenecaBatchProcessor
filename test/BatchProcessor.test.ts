@@ -463,7 +463,6 @@ describe('BatchProcessor', () => {
 
       const process = seneca.export('BatchProcessor/process')
       const preprocess = seneca.export('BatchProcessor/preprocess')
-      let batch = seneca.BatchMonitor('b0', 'r0')
 
       let out, ctx
 
