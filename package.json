@@ -1,6 +1,6 @@
 {
   "name": "@seneca/batch-processor",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "main": "dist/BatchProcessor.js",
   "type": "commonjs",
   "types": "dist/BatchProcessor.d.ts",
