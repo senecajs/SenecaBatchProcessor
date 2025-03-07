@@ -224,7 +224,7 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
     }
   }
   
-  function preprocess(seneca: any, ctx: any, out: any = {}) {
+  function preprocess(seneca: any, ctx: any, out: any = {}, meta: any = {custom: {}}, run = false) {
     const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function(...args: any) {}
     
     const whence = seneca.private$?.act?.msg
@@ -274,31 +274,50 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
         // console.log('preprocess: ', config, msg_evld)
         // seneca.private$.actrouter.find(msg_evld)
         
-        output_workflow.send.push({
-          msg: msg_evld,
-          type: Modes.ASYNC == config.mode ? 'post' : 'act',
-          run: Modes.ASYNC == config.mode ?
-            (async function() {
-              try {
-                let result = await seneca.post(config.msg)
-                results.push(result)
-              } catch(error) {
-                // handle error
-                throw error
-              }
-            }) :
-            (function () {
-              seneca.act(config.msg, function(this: any, err: any, result: any) {
-                if(null == err) {
+        /*
+        if(run) {
+        
+          if(Modes.ASYNC == config.mode) {
+            try {
+              let result = await seneca.post(msg_evld)
+              results.push(result)
+            } catch(error) {
+              // handle error
+              throw error
+            }
+          }
+    
+    
+        } else {
+        */
+        
+          output_workflow.send.push({
+            msg: msg_evld,
+            type: Modes.ASYNC == config.mode ? 'post' : 'act',
+            run: Modes.ASYNC == config.mode ?
+              (async function() {
+                try {
+                  let result = await seneca.post(config.msg, {meta$: meta})
                   results.push(result)
-                } else {
+                } catch(error) {
                   // handle error
-                  throw err
+                  throw error
                 }
+              }) :
+              (function () {
+                seneca.act(config.msg, function(this: any, err: any, result: any) {
+                  if(null == err) {
+                    results.push(result)
+                  } else {
+                    // handle error
+                    throw err
+                  }
+                })
               })
-            })
           
-        })
+          })
+        
+        // }
         
         // workflowRun(seneca, msg_evld, config)
       }
@@ -306,6 +325,7 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
       // console.log(workflow, out)
     }
     
+    // TODO: Refactor into one loop for multiple outgoing messages
     output_workflow.run = async function() {
       let entry = output_workflow.entry
     
@@ -327,7 +347,7 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
     return output_workflow
   }
 
-  async function process(workflowExec: any, ctx: any, out: any = {}) {
+  async function process_workflow(workflowExec: any, ctx: any, out: any = {}) {
   
     const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function(...args: any) {}
     const { whence, entry, send } = workflowExec
@@ -354,11 +374,20 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
      
     return out
   }
+  
+  async function process(seneca: any, ctx: any, out: any = {}, meta: any = {custom: {}}) {
+    let workflow = preprocess(seneca, ctx, out, meta)
+    
+    out = await workflow.run()
+    
+    return out
+  }
 
   return {
     exports: {
+      process_workflow,
+      preprocess,
       process,
-      preprocess
     }
   }
 }

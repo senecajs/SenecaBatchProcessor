@@ -167,7 +167,7 @@ function BatchProcessor(options) {
             wheres.add(pattern, matcherInst);
         }
     }
-    function preprocess(seneca, ctx, out = {}) {
+    function preprocess(seneca, ctx, out = {}, meta = { custom: {} }, run = false) {
         var _a, _b;
         const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function (...args) { };
         const whence = (_b = (_a = seneca.private$) === null || _a === void 0 ? void 0 : _a.act) === null || _b === void 0 ? void 0 : _b.msg;
@@ -203,13 +203,29 @@ function BatchProcessor(options) {
                 let msg_evld = evaluateMessage(ctx, out, msg, body);
                 // console.log('preprocess: ', config, msg_evld)
                 // seneca.private$.actrouter.find(msg_evld)
+                /*
+                if(run) {
+                
+                  if(Modes.ASYNC == config.mode) {
+                    try {
+                      let result = await seneca.post(msg_evld)
+                      results.push(result)
+                    } catch(error) {
+                      // handle error
+                      throw error
+                    }
+                  }
+            
+            
+                } else {
+                */
                 output_workflow.send.push({
                     msg: msg_evld,
                     type: Modes.ASYNC == config.mode ? 'post' : 'act',
                     run: Modes.ASYNC == config.mode ?
                         (async function () {
                             try {
-                                let result = await seneca.post(config.msg);
+                                let result = await seneca.post(config.msg, { meta$: meta });
                                 results.push(result);
                             }
                             catch (error) {
@@ -229,10 +245,12 @@ function BatchProcessor(options) {
                             });
                         })
                 });
+                // }
                 // workflowRun(seneca, msg_evld, config)
             }
             // console.log(workflow, out)
         }
+        // TODO: Refactor into one loop for multiple outgoing messages
         output_workflow.run = async function () {
             let entry = output_workflow.entry;
             for (let { run } of output_workflow.send) {
@@ -247,7 +265,7 @@ function BatchProcessor(options) {
         // console.dir(output_workflow, { depth: null })
         return output_workflow;
     }
-    async function process(workflowExec, ctx, out = {}) {
+    async function process_workflow(workflowExec, ctx, out = {}) {
         const BatchMonitorEntry = ctx.BatchMonitorEntry$ || function (...args) { };
         const { whence, entry, send } = workflowExec;
         // console.log(whence, wheres.list())
@@ -266,10 +284,16 @@ function BatchProcessor(options) {
         out.batch = out.batch || ('B' + humanify());
         return out;
     }
+    async function process(seneca, ctx, out = {}, meta = { custom: {} }) {
+        let workflow = preprocess(seneca, ctx, out, meta);
+        out = await workflow.run();
+        return out;
+    }
     return {
         exports: {
+            process_workflow,
+            preprocess,
             process,
-            preprocess
         }
     };
 }
