@@ -163,6 +163,8 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
     for(let key in msg) {
       let type = msg[key].split('~').pop()
       let value = (Inks as any).evaluate(msg[key], { out, ctx }, { sep: '~' })
+      
+      // console.log('type, value: ', [msg[key], type, value])
   
       if(null != value && Types[type]) {
         // console.log(value.constructor, [ expr({ src: type, val: value }).t ] )
