@@ -1,9 +1,9 @@
 {
   "name": "@seneca/batch-processor",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "main": "dist/BatchProcessor.js",
   "type": "commonjs",
-  "types": "dist/Config.d.ts",
+  "types": "dist/BatchProcessor.d.ts",
   "description": "Seneca Batch Processor",
   "homepage": "https://github.com/senecajs/SenecaBatchProcessor",
   "keywords": [
