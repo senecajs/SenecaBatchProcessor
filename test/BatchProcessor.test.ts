@@ -566,6 +566,7 @@ describe('BatchProcessor', () => {
       const seneca = makeSeneca(opts)
       await seneca.ready()
       
+      const preprocess = seneca.export('BatchProcessor/preprocess')
       const process = seneca.export('BatchProcessor/process')
       
       let batch = seneca.BatchMonitor('b0', 'r0')
@@ -577,6 +578,8 @@ describe('BatchProcessor', () => {
         
         return {
           ok: true,
+          planet: msg.planet,
+          order: msg.order,
           whence: {
             aim: 'zoo',
             color: msg.color
@@ -593,6 +596,9 @@ describe('BatchProcessor', () => {
         ctx = { place: { order: 1 }, BatchMonitorEntry$: bme }
 
         out = await process(this, ctx, out, { custom: { info: 10 } } )
+        
+        // let out1 = preprocess(this, ctx, out);
+        // console.dir(out1, {depth: null})
 
         return out
         // console.log(out, ctx, state)
@@ -615,6 +621,8 @@ describe('BatchProcessor', () => {
       expect(ctx.result$).toEqual([
         {
           ok: true,
+          planet: "mars",
+          order: 1,
           whence: {
             aim: 'zoo',
             color: 'blue'

@@ -290,14 +290,13 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
     
         } else {
         */
-        
           output_workflow.send.push({
             msg: msg_evld,
             type: Modes.ASYNC == config.mode ? 'post' : 'act',
             run: Modes.ASYNC == config.mode ?
               (async function() {
                 try {
-                  let result = await seneca.post(config.msg, {meta$: meta})
+                  let result = await seneca.post(msg_evld, {meta$: meta})
                   results.push(result)
                 } catch(error) {
                   // handle error
@@ -305,7 +304,7 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
                 }
               }) :
               (function () {
-                seneca.act(config.msg, function(this: any, err: any, result: any) {
+                seneca.act(msg_evld, function(this: any, err: any, result: any) {
                   if(null == err) {
                     results.push(result)
                   } else {
@@ -362,6 +361,8 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
       throw new Error("whence not found!")
     }
     // console.log(where.find(out), out)
+    
+    
     
     for(let config of send) {
       await workflowRun(seneca, config, results)

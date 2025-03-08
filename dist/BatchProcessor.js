@@ -225,7 +225,7 @@ function BatchProcessor(options) {
                     run: Modes.ASYNC == config.mode ?
                         (async function () {
                             try {
-                                let result = await seneca.post(config.msg, { meta$: meta });
+                                let result = await seneca.post(msg_evld, { meta$: meta });
                                 results.push(result);
                             }
                             catch (error) {
@@ -234,7 +234,7 @@ function BatchProcessor(options) {
                             }
                         }) :
                         (function () {
-                            seneca.act(config.msg, function (err, result) {
+                            seneca.act(msg_evld, function (err, result) {
                                 if (null == err) {
                                     results.push(result);
                                 }
