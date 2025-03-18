@@ -3,7 +3,7 @@ type WorkFlow = {
     send?: Array<any> | Object;
 };
 type Match = Record<string, WorkFlow>;
-type BatchProcessorOptionsFull = {
+type BatchProcessorInstanceOptions = {
     debug: boolean;
     send: {
         mode: string;
@@ -11,12 +11,17 @@ type BatchProcessorOptionsFull = {
     where: Record<string, Match>;
     generate_id?: Function;
 };
+type BatchProcessorOptionsFull = Record<string, BatchProcessorInstanceOptions>;
 export type BatchProcessorOptions = Partial<BatchProcessorOptionsFull>;
+declare class BatchProcessClass {
+    name: string;
+    id: string;
+    process_workflow: Function;
+    preprocess: Function;
+    process: Function;
+    constructor(name: string, id: string, process_workflow: Function, preprocess: Function, process: Function);
+}
 declare function BatchProcessor(this: any, options: BatchProcessorOptionsFull): {
-    exports: {
-        process_workflow: (workflowExec: any, ctx: any, out?: any) => Promise<any>;
-        preprocess: (seneca: any, ctx: any, out?: any, meta?: any, run?: boolean) => any;
-        process: (seneca: any, ctx: any, out?: any, meta?: any) => Promise<any>;
-    };
+    exports: Record<string, BatchProcessClass>;
 };
 export default BatchProcessor;
