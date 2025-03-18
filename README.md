@@ -161,10 +161,7 @@ Review the [unit tests](test/BatchProcessor.test.ts) for more examples.
 
 ## Options
 
-* `debug` : boolean
-* `send` : object
-* `where` : object
-* `init$` : boolean
+*None.*
 
 
 <!--END:options-->
