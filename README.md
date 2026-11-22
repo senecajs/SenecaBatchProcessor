@@ -2,7 +2,12 @@
 
 > _Seneca BatchProcessor_ is a plugin for [Seneca](http://senecajs.org)
 
-INTRO
+Sends the next messages of a batch when an action finishes. Each named
+instance of the plugin maps the result of an action, matched by the action's
+pattern and by patterns on its output, to follow-up messages that are sent with
+`post` or `act`. Message fields can refer to the output and to a context object
+(see the `inks` package), and an optional `@seneca/batch-monitor` entry
+records each step.
 
 [![npm version](https://img.shields.io/npm/v/@seneca/batch-processor.svg)](https://npmjs.com/package/@seneca/batch-processor)
 [![build](https://github.com/senecajs/SenecaBatchProcessor/actions/workflows/build.yml/badge.svg)](https://github.com/senecajs/SenecaBatchProcessor/actions/workflows/build.yml)
@@ -17,8 +22,11 @@ INTRO
 ## Install
 
 ```sh
-$ npm install @seneca/batch-processor
+$ npm install seneca@^4 @seneca/batch-processor
 ```
+
+Requires Seneca 4 and Node.js 24 or later. Seneca 3 users stay on
+`@seneca/batch-processor@0.3`.
 
 
 ## Quick Example
@@ -27,7 +35,7 @@ $ npm install @seneca/batch-processor
 
 // Seneca setup script:
 
-seneca.use('BatchProcessor', {
+seneca.use('@seneca/batch-processor', {
   send: {  
     mode: 'async', // wait for transition, global setting
   },
@@ -41,7 +49,7 @@ seneca.use('BatchProcessor', {
                 aim: 'bar',
                 color: 'blue',
                 planet: 'out~planet' // dot path ref (see npm package `inks` .evaluate)
-                order: 'ctx~place.order~Number' // Gubu validation expression
+                order: 'ctx~place.order~Number' // type check: Number, Boolean or String
               }   
             },
             {
@@ -87,8 +95,8 @@ seneca.act({aim:bar,color:green,planet:mars,order:1})
 // Seneca setup script:
 
 seneca
-.use('BatchMonitor', {...})
-.use('BatchProcessor', {
+.use('@seneca/batch-monitor', {...})
+.use('@seneca/batch-processor', {
   send: {  
     mode: 'async', // wait for transition, global setting
   },
@@ -115,7 +123,7 @@ seneca
                 aim: 'bar',
                 color: 'blue',
                 planet: 'out~planet' // dot path ref
-                order: 'ctx~place.order~Number' // Gubu validation expression
+                order: 'ctx~place.order~Number' // type check: Number, Boolean or String
               }   
             },
             {

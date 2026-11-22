@@ -14,8 +14,7 @@ describe('BatchProcessor', () => {
     expect(BatchProcessorDoc).toBeDefined()
     const seneca = Seneca({ legacy: false })
     .test()
-    .use('promisify')
-    .use('entity')
+    .use('@seneca/entity')
     .use(BatchProcessor)
 
     await seneca.ready()
@@ -47,7 +46,7 @@ describe('BatchProcessor', () => {
                       aim: 'bar',
                       color: 'blue',
                       planet: 'out~planet', // dot path ref (see npm package `inks` .evaluate)
-                      order: 'ctx~place.order~Number' // Gubu validation expression
+                      order: 'ctx~place.order~Number' // type check: Number, Boolean or String
                     }   
                   },
                   {
@@ -77,7 +76,7 @@ describe('BatchProcessor', () => {
                       aim: 'bar',
                       color: 'blue',
                       planet: 'out~planet', // dot path ref (see npm package `inks` .evaluate)
-                      order: 'ctx~place.order~Number' // Gubu validation expression
+                      order: 'ctx~place.order~Number' // type check: Number, Boolean or String
                     }   
                   },
                   {
@@ -286,7 +285,7 @@ describe('BatchProcessor', () => {
                       aim: 'bar',
                       color: 'blue',
                       planet: 'out~planet', // dot path ref (see npm package `inks` .evaluate)
-                      order: 'ctx~place.order~Number' // Gubu validation expression
+                      order: 'ctx~place.order~Number' // type check: Number, Boolean or String
                     }   
                   },
                   {
@@ -407,7 +406,7 @@ describe('BatchProcessor', () => {
                       aim: 'bar',
                       color: 'blue',
                       planet: 'out~planet', // dot path ref
-                      order: 'ctx~place.order~Number' // Gubu validation expression
+                      order: 'ctx~place.order~Number' // type check: Number, Boolean or String
                     }
                   },
                   {
@@ -684,7 +683,7 @@ describe('BatchProcessor', () => {
                       aim: 'bar',
                       color: 'blue',
                       planet: 'out~planet', // dot path ref
-                      order: 'ctx~place.order~Number' // Gubu validation expression
+                      order: 'ctx~place.order~Number' // type check: Number, Boolean or String
                     }
                   },
                   {
@@ -796,7 +795,7 @@ describe('BatchProcessor', () => {
                         aim: 'zoo',
                         color: 'blue',
                         planet: 'out~planet', // dot path ref
-                        order: 'ctx~place.order~Number' // Gubu validation expression
+                        order: 'ctx~place.order~Number' // type check: Number, Boolean or String
                       }
                     }
                   ]
@@ -1012,7 +1011,7 @@ describe('BatchProcessor', () => {
                         aim: 'bar',
                         color: 'blue',
                         planet: 'out~planet', // dot path ref
-                        order: 'ctx~place.order~Number' // Gubu validation expression
+                        order: 'ctx~place.order~Number' // type check: Number, Boolean or String
                       }
                     },
                     {
@@ -1090,9 +1089,8 @@ async function wait(t: number = 11) {
 function makeSeneca(opts: any = {}) {
   const seneca = Seneca({ legacy: false })
   .test()
-  .use('promisify')
-  .use('entity')
-  .use('entity-util', { when: { active: true } })
+  .use('@seneca/entity')
+  .use('@seneca/entity-util', { when: { active: true } })
   .use(BatchProcessor, opts)
   .use(BatchMonitor, {
     kind: {

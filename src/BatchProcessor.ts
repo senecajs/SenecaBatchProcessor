@@ -1,11 +1,6 @@
 /* Copyright © 2025 Seneca Project Contributors, MIT License. */
 
 import Inks from 'inks'
-import { Gubu } from 'gubu'
-
-const {
-  expr
-} = Gubu
 
 const ALL = '*'
 const Types: Record<string, number> = {
@@ -202,7 +197,7 @@ function BatchProcessor(this: any, options: BatchProcessorOptionsFull) {
 
     const Patrun = seneca.util.Patrun
     const Jsonic = seneca.util.Jsonic
-    const Deep = seneca.util.deepextend
+    const { expr } = seneca.valid
     const generate_id = options.generate_id || seneca.util.Nid
     const BatchId = generate_id()
 
