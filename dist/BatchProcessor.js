@@ -5,8 +5,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const inks_1 = __importDefault(require("inks"));
-const gubu_1 = require("gubu");
-const { expr } = gubu_1.Gubu;
 const ALL = '*';
 const Types = {
     'Number': 1,
@@ -140,7 +138,7 @@ function BatchProcessor(options) {
         const options = instances[instance];
         const Patrun = seneca.util.Patrun;
         const Jsonic = seneca.util.Jsonic;
-        const Deep = seneca.util.deepextend;
+        const { expr } = seneca.valid;
         const generate_id = options.generate_id || seneca.util.Nid;
         const BatchId = generate_id();
         // console.log('instance name: ', instance)

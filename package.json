@@ -1,6 +1,6 @@
 {
   "name": "@seneca/batch-processor",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "main": "dist/BatchProcessor.js",
   "type": "commonjs",
   "types": "dist/BatchProcessor.d.ts",
@@ -8,12 +8,13 @@
   "homepage": "https://github.com/senecajs/SenecaBatchProcessor",
   "keywords": [
     "seneca",
-    "Config"
+    "BatchProcessor",
+    "batch"
   ],
   "author": "Richard Rodger - richardrodger.com",
   "repository": {
     "type": "git",
-    "url": "git://github.com/senecajs/SenecaBatchProcessor.git"
+    "url": "git+https://github.com/senecajs/SenecaBatchProcessor.git"
   },
   "scripts": {
     "prettier": "prettier --write .",
@@ -22,9 +23,10 @@
     "test-watch": "jest --coverage --watchAll",
     "watch": "tsc -w -d",
     "build": "tsc -d",
+    "prepublishOnly": "npm run build",
     "doc": "seneca-doc",
     "clean": "rm -rf node_modules yarn.lock package-lock.json",
-    "reset": "npm run clean && npm i -f && npm test",
+    "reset": "npm run clean && npm i && npm test",
     "repo-tag": "REPO_VERSION=`node -e \"console.log(require('./package').version)\"` && echo TAG: v$REPO_VERSION && git commit -a -m v$REPO_VERSION && git push && git tag v$REPO_VERSION && git push --tags;",
     "repo-publish": "npm run clean && npm i && npm run repo-publish-quick",
     "repo-publish-quick": "npm run build && npm run test && npm run doc && npm run repo-tag && npm publish --access public --registry https://registry.npmjs.org "
@@ -36,29 +38,29 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=14"
+    "node": ">=24"
   },
   "devDependencies": {
-    "@seneca/batch-monitor": "^0.0.6",
-    "@seneca/doc": "^8.0.0",
-    "@seneca/maintain": "^0.1.0",
+    "@seneca/batch-monitor": "^0.1.0",
+    "@seneca/doc": "^9.0.0",
+    "@seneca/entity": "^29.0.0",
+    "@seneca/entity-util": "^4.0.0",
     "@types/jest": "^29.5.12",
-    "@types/node": "^20.14.2",
+    "@types/node": "^24.0.0",
     "esbuild": "^0.21.4",
     "esbuild-jest": "^0.5.0",
     "jest": "^29.7.0",
     "prettier": "3.3.1",
-    "seneca-msg-test": "^4.1.0",
-    "seneca": "4.0.0-rc2",
+    "seneca": "^4.0.0",
     "typescript": "5.4.5"
   },
   "peerDependencies": {
-    "@seneca/entity-util": ">=3",
-    "seneca": ">=3||>=4.0.0-rc2",
-    "seneca-entity": ">=25",
-    "gubu": ">=7"
+    "seneca": "^4.0.0"
   },
   "dependencies": {
     "inks": "3.0.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
